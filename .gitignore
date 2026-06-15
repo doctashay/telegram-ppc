@@ -1,0 +1,6 @@
+TelegramCredentials.h
+build/
+build-*/
+standalone-tmp/
+*.dmg
+.DS_Store

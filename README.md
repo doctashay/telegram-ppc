@@ -1,7 +1,8 @@
 # TelegramPPC
 
 TelegramPPC is a native Cocoa Telegram client for Mac OS X 10.5 Leopard on PowerPC Macs. It is written in Objective-C++ and uses TDLib for Telegram protocol access.
-<img width="681" height="495" alt="image" src="https://github.com/user-attachments/assets/a2d205d3-9354-4322-a1c3-b84769a10417" />
+
+<img width="942" height="684" alt="image" src="https://github.com/user-attachments/assets/64116cb1-c424-408f-9e9a-f8236432b3e0" />
 
 ## Features
 

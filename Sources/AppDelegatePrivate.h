@@ -5,7 +5,7 @@
 @interface AppDelegate (Private)
 - (void)setStatusText:(NSString *)text;
 - (void)setAuthWindowStatus:(NSString *)text;
-- (void)handleTDLibObjectJSON:(const json &)obj;
+- (void)handleTDLibObjectJSON:(const json *)obj;
 - (void)refreshChats;
 - (void)refreshMessages;
 - (void)scheduleChatRefresh;

@@ -1,6 +1,25 @@
 #import "TelegramBridge.h"
 #import "AppDelegatePrivate.h"
 #import "FoundationHelpers.h"
+#import "OSCompat.h"
+
+static void BridgeLog(NSString *format, ...) {
+  if (!getenv("TELEGRAM_PPC_TDLIB_LOG")) return;
+
+  va_list args;
+  va_start(args, format);
+  NSString *message = [[[NSString alloc] initWithFormat:format arguments:args] autorelease];
+  va_end(args);
+
+  NSString *line = [NSString stringWithFormat:@"%@ %@\n", [NSDate date], message];
+  NSFileHandle *handle = [NSFileHandle fileHandleForWritingAtPath:@"/tmp/TelegramPPC.log"];
+  if (!handle) {
+    [[NSFileManager defaultManager] createFileAtPath:@"/tmp/TelegramPPC.log" contents:nil attributes:nil];
+    handle = [NSFileHandle fileHandleForWritingAtPath:@"/tmp/TelegramPPC.log"];
+  }
+  [handle seekToEndOfFile];
+  [handle writeData:[line dataUsingEncoding:NSUTF8StringEncoding]];
+}
 
 @implementation TelegramBridge
 
@@ -27,10 +46,16 @@
   if ([ep length]) [cands addObject:ep];
   for (NSUInteger i = 0; i < [cands count]; i++) {
     NSString *candidate = [cands objectAtIndex:i];
-    handle_ = dlopen([candidate fileSystemRepresentation], RTLD_NOW | RTLD_LOCAL);
-    if (handle_) break;
+    BridgeLog(@"Trying TDLib candidate %@", candidate);
+    handle_ = dlopen([candidate fileSystemRepresentation], RTLD_LAZY | RTLD_LOCAL);
+    if (handle_) {
+      BridgeLog(@"Loaded TDLib candidate %@", candidate);
+      break;
+    }
+    BridgeLog(@"TDLib candidate failed: %s", dlerror());
   }
   if (!handle_) {
+    BridgeLog(@"TDLib not found");
     [delegate_ setStatusText:@"TDLib not found."];
     return NO;
   }
@@ -39,9 +64,11 @@
   tdExecute_ = reinterpret_cast<td_execute_fn>(dlsym(handle_, "td_execute"));
   tdCreateClientId_ = reinterpret_cast<td_create_client_id_fn>(dlsym(handle_, "td_create_client_id"));
   if (!tdReceive_ || !tdSend_ || !tdExecute_ || !tdCreateClientId_) {
+    BridgeLog(@"TDLib symbols missing receive=%p send=%p execute=%p create=%p", tdReceive_, tdSend_, tdExecute_, tdCreateClientId_);
     [delegate_ setStatusText:@"TDLib symbols missing."];
     return NO;
   }
+  BridgeLog(@"TDLib symbols resolved");
   return YES;
 }
 
@@ -51,6 +78,7 @@
     return;
   }
   NSString *js = JSONStringFromJSON(payload);
+  BridgeLog(@"td_send client=%d %@", clientId_, js);
   tdSend_(clientId_, [js UTF8String]);
 }
 
@@ -63,21 +91,24 @@
 - (void)configureTDLib {
   NSString *root = [@"~/Library/Application Support/PowerPCTelegram" stringByExpandingTildeInPath];
   NSString *files = [root stringByAppendingPathComponent:@"files"];
-  [[NSFileManager defaultManager] createDirectoryAtPath:root withIntermediateDirectories:YES attributes:nil error:nil];
-  [[NSFileManager defaultManager] createDirectoryAtPath:files withIntermediateDirectories:YES attributes:nil error:nil];
+  EnsureDirectoryExists(root);
+  EnsureDirectoryExists(files);
   json p = {{"@type", "setTdlibParameters"}, {"use_test_dc", false},
     {"database_directory", StdStringFromNSString(root)}, {"files_directory", StdStringFromNSString(files)},
     {"use_file_database", true}, {"use_chat_info_database", true}, {"use_message_database", true},
     {"enable_storage_optimizer", true}, {"api_id", kTDLibApiId}, {"api_hash", StdStringFromNSString(kTDLibApiHash)},
-    {"system_language_code", "en"}, {"device_model", "Power Mac G5"}, {"system_version", "Mac OS X 10.5.8"},
+    {"system_language_code", "en"}, {"device_model", "Power Mac G5"}, {"system_version", "Mac OS X " TELEGRAM_PPC_SYSTEM_VERSION},
     {"application_version", "0.1-ppc"}};
   [self sendJSON:p];
 }
 
 - (void)start {
+  BridgeLog(@"Bridge start");
   if (![self loadTDLib]) return;
-  tdExecute_("{\"@type\":\"setLogVerbosityLevel\",\"new_verbosity_level\":1}");
+  const char *logResult = tdExecute_("{\"@type\":\"setLogVerbosityLevel\",\"new_verbosity_level\":1}");
+  BridgeLog(@"setLogVerbosityLevel result %s", logResult ? logResult : "(null)");
   clientId_ = tdCreateClientId_();
+  BridgeLog(@"Created TDLib client id %d", clientId_);
   [delegate_ setStatusText:@"TDLib loaded."];
 }
 
@@ -178,7 +209,8 @@
     if (!r) break;
     processed++;
     json o = JSONFromCString(r);
-    if (!o.is_null()) [delegate_ handleTDLibObjectJSON:o];
+    BridgeLog(@"td_receive %@", NSStringFromStdString(o.dump()));
+    if (!o.is_null()) [delegate_ handleTDLibObjectJSON:&o];
   }
   if (processed == maxPerTick && !pollAgainScheduled_) {
     pollAgainScheduled_ = YES;

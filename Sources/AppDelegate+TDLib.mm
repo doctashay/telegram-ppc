@@ -119,16 +119,12 @@
 
 - (void)refreshMessages {
   if (!messageTable_) return;
-  @try {
-    if (inlineVideoContainer_) [self stopInlineVideoPlayer];
-    pendingMessageHeightInvalidation_ = YES;
-    [self updateMainLayout];
-    [messageTable_ reloadData];
-    NSInteger rc = [messageTable_ numberOfRows];
-    if (rc > 0) [messageTable_ scrollRowToVisible:(rc - 1)];
-  } @catch (NSException *e) {
-    [self setStatusText:[NSString stringWithFormat:@"Refresh failed: %@", [e reason]]];
-  }
+  if (inlineVideoContainer_) [self stopInlineVideoPlayer];
+  pendingMessageHeightInvalidation_ = YES;
+  [self updateMainLayout];
+  [messageTable_ reloadData];
+  NSInteger rc = [messageTable_ numberOfRows];
+  if (rc > 0) [messageTable_ scrollRowToVisible:(rc - 1)];
 }
 
 - (void)scheduleChatRefresh {
@@ -151,13 +147,9 @@
 - (void)performScheduledMessageRefresh {
   messageRefreshScheduled_ = NO;
   if (!messageTable_) return;
-  @try {
-    pendingMessageHeightInvalidation_ = YES;
-    [self updateMainLayout];
-    [messageTable_ reloadData];
-  } @catch (NSException *e) {
-    [self setStatusText:[NSString stringWithFormat:@"Refresh failed: %@", [e reason]]];
-  }
+  pendingMessageHeightInvalidation_ = YES;
+  [self updateMainLayout];
+  [messageTable_ reloadData];
 }
 
 - (void)appendMessage:(NSDictionary *)msg toChatId:(NSNumber *)cid {
@@ -243,36 +235,36 @@
   }
 }
 
-- (void)handleTDLibObjectJSON:(const json &)obj {
-  if (!obj.is_object()) return;
-  NSString *type = obj.contains("@type") ? NSStringFromStdString(obj["@type"].get<std::string>()) : @"";
+- (BOOL)handleTDLibSessionObjectJSON:(const json *)objPtr type:(NSString *)type {
+  if (!objPtr) return NO;
+  const json &obj = *objPtr;
 
   if ([type isEqualToString:@"updateAuthorizationState"]) {
     NSString *st = @"";
     if (obj.contains("authorization_state") && obj["authorization_state"].is_object() && obj["authorization_state"].contains("@type"))
       st = NSStringFromStdString(obj["authorization_state"]["@type"].get<std::string>());
     [bridge_ updateAuthorizationState:st];
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"error"]) {
     int code = obj.contains("code") ? obj["code"].get<int>() : 0;
     NSString *msg = obj.contains("message") ? NSStringFromStdString(obj["message"].get<std::string>()) : @"Unknown";
     [self setAuthBusy:NO message:nil];
     [self setStatusText:[NSString stringWithFormat:@"TDLib error %d: %@", code, msg]];
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"ok"]) {
     NSString *st = [bridge_ authorizationState];
     if ([st isEqualToString:@"authorizationStateWaitCode"]) [self setAuthWindowStatus:@"MFA code sent to the Telegram app on your device."];
     else if ([st isEqualToString:@"authorizationStateWaitPassword"]) [self setAuthWindowStatus:@"Enter your Telegram two-step verification password."];
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"updateConnectionState"]) {
     if (obj.contains("state") && obj["state"].is_object() && obj["state"].contains("@type")) {
       NSString *stt = NSStringFromStdString(obj["state"]["@type"].get<std::string>());
       [self setStatusText:[self readableConnectionState:stt]];
     }
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"updateCall"]) {
     if (obj.contains("call")) {
@@ -326,7 +318,7 @@
         [self setStatusText:[NSString stringWithFormat:@"Call: %@", callState_]];
       }
     }
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"updateUser"]) {
     NSDictionary *u = (NSDictionary *)NSObjectFromJSON(obj["user"]);
@@ -353,7 +345,7 @@
         [self scheduleMessageRefresh];
       }
     }
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"updateUserStatus"]) {
     if (obj.contains("user_id")) {
@@ -363,7 +355,7 @@
         [bridge_ sendJSON:getPayload];
       }
     }
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"user"]) {
     NSDictionary *u = (NSDictionary *)NSObjectFromJSON(obj);
@@ -389,12 +381,12 @@
         }
       }
     }
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"file"]) {
     NSDictionary *fd = (NSDictionary *)NSObjectFromJSON(obj);
     [self handleFileDictionary:fd];
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"updateFile"]) {
     if (obj.contains("file")) {
@@ -420,25 +412,38 @@
         }
       }
     }
-    return;
+    return YES;
   }
+
+  return NO;
+}
+
+- (BOOL)handleTDLibChatIdentityDictionary:(NSDictionary *)dict type:(NSString *)type {
+  if (!dict) return NO;
   if ([type isEqualToString:@"updateNewChat"]) {
-    NSDictionary *chat = (NSDictionary *)NSObjectFromJSON(obj["chat"]);
+    NSDictionary *chat = [dict objectForKey:@"chat"];
     if (chat) { [self upsertChat:chat]; [self scheduleChatRefresh]; }
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"updateChatTitle"]) {
-    NSNumber *cid = [NSNumber numberWithLongLong:JSONLongLongAt(obj, "chat_id")];
+    NSNumber *cid = [NSNumber numberWithLongLong:LongLongValue([dict objectForKey:@"chat_id"])];
     NSMutableDictionary *chat = [chatsById_ objectForKey:cid];
-    if (chat && obj.contains("title")) { [chat setObject:NSStringFromStdString(obj["title"].get<std::string>()) forKey:@"title"]; [self scheduleChatRefresh]; }
-    return;
+    NSString *title = StringOrEmpty([dict objectForKey:@"title"]);
+    if (chat && [title length]) { [chat setObject:title forKey:@"title"]; [self scheduleChatRefresh]; }
+    return YES;
   }
+
+  return NO;
+}
+
+- (BOOL)handleTDLibChatPhotoDictionary:(NSDictionary *)dict type:(NSString *)type {
+  if (!dict) return NO;
   if ([type isEqualToString:@"updateChatPhoto"]) {
-    NSNumber *cid = [NSNumber numberWithLongLong:JSONLongLongAt(obj, "chat_id")];
+    NSNumber *cid = [NSNumber numberWithLongLong:LongLongValue([dict objectForKey:@"chat_id"])];
     NSMutableDictionary *chat = [chatsById_ objectForKey:cid];
     if (chat) {
-      if (obj.contains("photo") && !obj["photo"].is_null()) {
-        NSDictionary *photo = (NSDictionary *)NSObjectFromJSON(obj["photo"]);
+      NSDictionary *photo = [dict objectForKey:@"photo"];
+      if ([photo isKindOfClass:[NSDictionary class]]) {
         if (photo) {
           [chat setObject:photo forKey:@"photo"];
           long long pfid = PhotoSmallFileIdFromPhotoDict(photo);
@@ -458,46 +463,61 @@
       }
       [self scheduleChatRefresh];
     }
-    return;
+    return YES;
   }
+
+  return NO;
+}
+
+- (BOOL)handleTDLibChatStateDictionary:(NSDictionary *)dict type:(NSString *)type {
+  if (!dict) return NO;
   if ([type isEqualToString:@"updateChatPosition"]) {
-    NSNumber *cid = [NSNumber numberWithLongLong:JSONLongLongAt(obj, "chat_id")];
+    NSNumber *cid = [NSNumber numberWithLongLong:LongLongValue([dict objectForKey:@"chat_id"])];
     NSMutableDictionary *chat = [chatsById_ objectForKey:cid];
-    if (chat && obj.contains("position") && obj["position"].contains("order")) {
-      [chat setObject:[NSString stringWithFormat:@"%lld", JSONLongLong(obj["position"]["order"])] forKey:@"order"];
+    NSDictionary *position = [dict objectForKey:@"position"];
+    if (chat && [position isKindOfClass:[NSDictionary class]]) {
+      [chat setObject:[NSString stringWithFormat:@"%lld", LongLongValue([position objectForKey:@"order"])] forKey:@"order"];
       [self scheduleChatRefresh];
     }
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"updateChatLastMessage"]) {
-    NSNumber *cid = [NSNumber numberWithLongLong:JSONLongLongAt(obj, "chat_id")];
+    NSNumber *cid = [NSNumber numberWithLongLong:LongLongValue([dict objectForKey:@"chat_id"])];
     NSMutableDictionary *chat = [chatsById_ objectForKey:cid];
-    if (chat && obj.contains("last_message")) {
-      NSDictionary *lm = (NSDictionary *)NSObjectFromJSON(obj["last_message"]);
+    NSDictionary *lm = [dict objectForKey:@"last_message"];
+    if (chat && lm) {
       if (lm) { [chat setObject:lm forKey:@"last_message"]; [chat setObject:MessagePreviewFromContent([lm objectForKey:@"content"]) forKey:@"preview"]; }
       [self scheduleChatRefresh];
     }
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"updateChatUnreadCount"]) {
-    NSNumber *cid = [NSNumber numberWithLongLong:JSONLongLongAt(obj, "chat_id")];
+    NSNumber *cid = [NSNumber numberWithLongLong:LongLongValue([dict objectForKey:@"chat_id"])];
     NSMutableDictionary *chat = [chatsById_ objectForKey:cid];
     if (chat) {
-      long long uc = obj.contains("unread_count") ? JSONLongLong(obj["unread_count"]) : 0;
+      long long uc = LongLongValue([dict objectForKey:@"unread_count"]);
       [chat setObject:[NSNumber numberWithLongLong:uc] forKey:@"unread_count"];
       [self scheduleChatRefresh];
     }
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"updateChatReadInbox"]) {
-    NSNumber *cid = [NSNumber numberWithLongLong:JSONLongLongAt(obj, "chat_id")];
+    NSNumber *cid = [NSNumber numberWithLongLong:LongLongValue([dict objectForKey:@"chat_id"])];
     NSMutableDictionary *chat = [chatsById_ objectForKey:cid];
     if (chat) {
       [chat setObject:[NSNumber numberWithInt:0] forKey:@"unread_count"];
       [self scheduleChatRefresh];
     }
-    return;
+    return YES;
   }
+
+  return NO;
+}
+
+- (BOOL)handleTDLibMessageObjectJSON:(const json *)objPtr type:(NSString *)type {
+  if (!objPtr) return NO;
+  const json &obj = *objPtr;
+
   if ([type isEqualToString:@"updateNewMessage"]) {
     if (obj.contains("message")) {
       NSDictionary *msg = (NSDictionary *)NSObjectFromJSON(obj["message"]);
@@ -506,7 +526,7 @@
       if ([cid longLongValue] == selectedChatId_) { [self scheduleMessageRefresh]; [self requestFileDownloadForMessage:msg]; }
     }
     [self scheduleChatRefresh];
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"updateMessageContent"]) {
     NSNumber *cid = [NSNumber numberWithLongLong:JSONLongLongAt(obj, "chat_id")];
@@ -525,7 +545,7 @@
       }
     }
     if (LongLongValue(cid) == selectedChatId_) [self scheduleMessageRefresh];
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"updateDeleteMessages"]) {
     if (obj.contains("chat_id") && obj.contains("message_ids")) {
@@ -552,15 +572,15 @@
       }
       [self scheduleChatRefresh];
     }
-    return;
+    return YES;
   }
   if ([type isEqualToString:@"updateMessageEdited"]) {
     if (selectedChatId_) {
       [bridge_ loadChatHistory:selectedChatId_]; // Refresh to get updated content
     }
-    return;
+    return YES;
   }
-  if ([type isEqualToString:@"chats"]) { [bridge_ loadChats]; return; }
+  if ([type isEqualToString:@"chats"]) { [bridge_ loadChats]; return YES; }
   if ([type isEqualToString:@"messages"]) {
     long long responseChatId = selectedChatId_;
     if (obj.contains("@extra") && obj["@extra"].is_object() && obj["@extra"].contains("chat_id")) {
@@ -577,8 +597,25 @@
       [self setStatusText:StringOrEmpty([sc objectForKey:@"title"])];
       if (historyRetries_ > 0) { historyRetries_--; [bridge_ loadChatHistory:selectedChatId_]; }
     }
-    return;
+    return YES;
   }
+
+  return NO;
+}
+
+- (void)handleTDLibObjectJSON:(const json *)objPtr {
+  if (!objPtr) return;
+  const json &obj = *objPtr;
+  if (!obj.is_object()) return;
+  NSString *type = obj.contains("@type") ? NSStringFromStdString(obj["@type"].get<std::string>()) : @"";
+
+  if ([self handleTDLibSessionObjectJSON:objPtr type:type]) return;
+  NSDictionary *dict = (NSDictionary *)NSObjectFromJSON(obj);
+  if (![dict isKindOfClass:[NSDictionary class]]) dict = nil;
+  if ([self handleTDLibChatIdentityDictionary:dict type:type]) return;
+  if ([self handleTDLibChatPhotoDictionary:dict type:type]) return;
+  if ([self handleTDLibChatStateDictionary:dict type:type]) return;
+  if ([self handleTDLibMessageObjectJSON:objPtr type:type]) return;
 }
 
 @end

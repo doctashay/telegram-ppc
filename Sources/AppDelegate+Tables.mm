@@ -244,10 +244,11 @@
 - (id)tableView:(NSTableView *)tv objectValueForTableColumn:(NSTableColumn *)tc row:(NSInteger)row {
   (void)tc;
   if (tv == chatTable_) {
-    if (row < 0 || (NSUInteger)row >= [chatIds_ count]) return [NSDictionary dictionary];
+    if (row < 0 || (NSUInteger)row >= [chatIds_ count]) return @"";
     NSNumber *cid = [chatIds_ objectAtIndex:(NSUInteger)row];
     NSDictionary *c = [chatsById_ objectForKey:cid];
-    return c ? c : [NSDictionary dictionary];
+    NSString *title = StringOrEmpty([c objectForKey:@"title"]);
+    return [title length] ? title : @"Deleted Account";
   }
   NSNumber *cid = [NSNumber numberWithLongLong:selectedChatId_];
   NSArray *ms = [messagesByChatId_ objectForKey:cid];
@@ -282,8 +283,11 @@
       }
       NSString *initial = @"?";
       if ([title length] > 0) {
-        NSRange r = [title rangeOfComposedCharacterSequenceAtIndex:0];
-        initial = [[title substringWithRange:r] uppercaseString];
+        NSUInteger len = [title length];
+        NSUInteger firstLen = 1;
+        unichar first = [title characterAtIndex:0];
+        if (first >= 0xD800 && first <= 0xDBFF && len > 1) firstLen = 2;
+        initial = [[title substringToIndex:firstLen] uppercaseString];
       }
       [(ChatCell *)cell configureWithTitle:title preview:preview unread:unread avatarPath:avatarPath initial:initial];
     }

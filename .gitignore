@@ -1,6 +1,10 @@
 TelegramCredentials.h
 build/
 build-*/
+dist/
+docker/
+local-build-config*.sh
 standalone-tmp/
 *.dmg
+*.tgz
 .DS_Store

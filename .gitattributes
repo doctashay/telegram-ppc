@@ -1,0 +1,8 @@
+* text=auto
+
+*.h text eol=lf
+*.m text eol=lf
+*.mm text eol=lf
+*.plist text eol=lf
+*.sh text eol=lf
+CMakeLists.txt text eol=lf

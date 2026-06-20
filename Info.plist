@@ -16,12 +16,14 @@
   <string>TelegramPPC</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
+  <key>CFBundleSignature</key>
+  <string>????</string>
   <key>CFBundleShortVersionString</key>
   <string>0.1</string>
   <key>CFBundleVersion</key>
   <string>0.1</string>
   <key>LSMinimumSystemVersion</key>
-  <string>10.5</string>
+  <string>${TELEGRAM_PPC_MIN_SYSTEM_VERSION}</string>
   <key>NSPrincipalClass</key>
   <string>NSApplication</string>
 </dict>

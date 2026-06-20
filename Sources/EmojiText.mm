@@ -1,5 +1,6 @@
 #import "EmojiText.h"
 #import "FoundationHelpers.h"
+#import "ImageDrawing.h"
 
 static BOOL IsEmojiCodepoint(uint32_t cp) {
   // ZWJ and variation selectors are handled by segment parsing, not as standalone emoji
@@ -269,7 +270,7 @@ NSImage *TwemojiImageForSegment(NSDictionary *seg) {
 
 void DrawMissingEmojiGlyph(NSRect rect, NSColor *color) {
   NSRect r = NSInsetRect(rect, 1.5, 1.5);
-  NSBezierPath *p = [NSBezierPath bezierPathWithRoundedRect:r xRadius:3.0 yRadius:3.0];
+  NSBezierPath *p = RoundedBezierPath(r, 3.0);
   [[color colorWithAlphaComponent:0.18] setFill];
   [p fill];
   [[color colorWithAlphaComponent:0.45] setStroke];
@@ -440,7 +441,12 @@ NSString *TruncatedStringForWidth(NSString *text, NSDictionary *attrs, CGFloat m
   if ([text length] <= maxChars) return text;
   if (maxChars <= 3) return @"...";
 
-  NSRange safeRange = [text rangeOfComposedCharacterSequencesForRange:NSMakeRange(0, maxChars - 3)];
-  if (safeRange.length == 0) return @"...";
-  return [[text substringWithRange:safeRange] stringByAppendingString:@"..."];
+  NSUInteger length = maxChars - 3;
+  while (length > 0) {
+    unichar ch = [text characterAtIndex:length - 1];
+    if (ch < 0xD800 || ch > 0xDBFF) break;
+    length--;
+  }
+  if (length == 0) return @"...";
+  return [[text substringToIndex:length] stringByAppendingString:@"..."];
 }

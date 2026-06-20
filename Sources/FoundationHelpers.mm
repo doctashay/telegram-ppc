@@ -59,7 +59,8 @@ id NSObjectFromJSON(const json &value) {
 
 json JSONFromCString(const char *cstr) {
   if (cstr == NULL) return json();
-  try { return json::parse(cstr); } catch (...) { return json(); }
+  json parsed = json::parse(cstr, NULL, false);
+  return parsed.is_discarded() ? json() : parsed;
 }
 
 NSString *StringOrEmpty(id value) {

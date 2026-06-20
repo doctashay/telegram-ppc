@@ -70,9 +70,31 @@ NSImage *ScaledCachedImageAtPath(NSString *path, CGFloat width, CGFloat height, 
   return scaled;
 }
 
+NSBezierPath *RoundedBezierPath(NSRect rect, CGFloat radius) {
+  CGFloat maxRadius = floor((rect.size.width < rect.size.height ? rect.size.width : rect.size.height) / 2.0);
+  if (radius > maxRadius) radius = maxRadius;
+  if (radius < 0.0) radius = 0.0;
+
+  NSBezierPath *path = [NSBezierPath bezierPath];
+  NSPoint min = NSMakePoint(NSMinX(rect), NSMinY(rect));
+  NSPoint max = NSMakePoint(NSMaxX(rect), NSMaxY(rect));
+
+  [path moveToPoint:NSMakePoint(min.x + radius, min.y)];
+  [path lineToPoint:NSMakePoint(max.x - radius, min.y)];
+  [path appendBezierPathWithArcFromPoint:NSMakePoint(max.x, min.y) toPoint:NSMakePoint(max.x, min.y + radius) radius:radius];
+  [path lineToPoint:NSMakePoint(max.x, max.y - radius)];
+  [path appendBezierPathWithArcFromPoint:NSMakePoint(max.x, max.y) toPoint:NSMakePoint(max.x - radius, max.y) radius:radius];
+  [path lineToPoint:NSMakePoint(min.x + radius, max.y)];
+  [path appendBezierPathWithArcFromPoint:NSMakePoint(min.x, max.y) toPoint:NSMakePoint(min.x, max.y - radius) radius:radius];
+  [path lineToPoint:NSMakePoint(min.x, min.y + radius)];
+  [path appendBezierPathWithArcFromPoint:NSMakePoint(min.x, min.y) toPoint:NSMakePoint(min.x + radius, min.y) radius:radius];
+  [path closePath];
+  return path;
+}
+
 void StrokeRoundedBorder(NSRect rect, CGFloat radius, NSColor *color) {
   NSRect r = NSInsetRect(rect, 0.5, 0.5);
-  NSBezierPath *p = [NSBezierPath bezierPathWithRoundedRect:r xRadius:radius yRadius:radius];
+  NSBezierPath *p = RoundedBezierPath(r, radius);
   [p setLineWidth:1.0];
   [color setStroke];
   [p stroke];
@@ -111,7 +133,7 @@ void DrawImageInRectUpright(NSImage *img, NSRect rect) {
 }
 
 void DrawRoundedImage(NSImage *img, NSRect rect, CGFloat radius, NSColor *borderColor) {
-  NSBezierPath *clip = [NSBezierPath bezierPathWithRoundedRect:rect xRadius:radius yRadius:radius];
+  NSBezierPath *clip = RoundedBezierPath(rect, radius);
   [NSGraphicsContext saveGraphicsState];
   [[NSGraphicsContext currentContext] setImageInterpolation:NSImageInterpolationHigh];
   [clip addClip];

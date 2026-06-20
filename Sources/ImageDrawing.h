@@ -4,6 +4,7 @@
 
 NSImage *CachedImageAtPath(NSString *path);
 NSImage *ScaledCachedImageAtPath(NSString *path, CGFloat width, CGFloat height, BOOL flipped);
+NSBezierPath *RoundedBezierPath(NSRect rect, CGFloat radius);
 void StrokeRoundedBorder(NSRect rect, CGFloat radius, NSColor *color);
 NSSize ImagePixelSize(NSImage *img);
 void DrawImageInRectUpright(NSImage *img, NSRect rect);

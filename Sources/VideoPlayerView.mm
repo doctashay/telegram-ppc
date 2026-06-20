@@ -75,7 +75,12 @@ static void *DecodeThread(void *arg) {
 }
 
 - (id)initWithFrame:(NSRect)frame path:(NSString *)path {
-  NSOpenGLPixelFormatAttribute attrs[] = {NSOpenGLPFADoubleBuffer, NSOpenGLPFAColorSize, 24, NSOpenGLPFAAlphaSize, 8, 0};
+  NSOpenGLPixelFormatAttribute attrs[] = {
+    NSOpenGLPFADoubleBuffer,
+    NSOpenGLPFAColorSize, (NSOpenGLPixelFormatAttribute)24,
+    NSOpenGLPFAAlphaSize, (NSOpenGLPixelFormatAttribute)8,
+    (NSOpenGLPixelFormatAttribute)0
+  };
   NSOpenGLPixelFormat *pf = [[[NSOpenGLPixelFormat alloc] initWithAttributes:attrs] autorelease];
   self = [super initWithFrame:frame pixelFormat:pf];
   if (!self) return nil;

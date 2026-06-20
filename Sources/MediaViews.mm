@@ -24,7 +24,7 @@
   if (mediaRect.size.width < 1.0) mediaRect.size.width = b.size.width;
   if (mediaRect.size.height < 1.0) mediaRect.size.height = b.size.height - controlsHeight_;
   NSRect r = NSInsetRect(b, 0.5, 0.5);
-  NSBezierPath *p = [NSBezierPath bezierPathWithRoundedRect:r xRadius:5.0 yRadius:5.0];
+  NSBezierPath *p = RoundedBezierPath(r, 5.0);
   [[NSColor colorWithCalibratedWhite:0.96 alpha:1.0] setFill];
   [p fill];
   NSImage *thumb = ScaledCachedImageAtPath(thumbnailPath_, mediaRect.size.width, mediaRect.size.height, NO);
@@ -32,7 +32,7 @@
     DrawRoundedImage(thumb, mediaRect, 4.0, [NSColor colorWithCalibratedWhite:0.70 alpha:1.0]);
   } else {
     [[NSColor colorWithCalibratedWhite:0.12 alpha:1.0] setFill];
-    [[NSBezierPath bezierPathWithRoundedRect:mediaRect xRadius:4.0 yRadius:4.0] fill];
+    [RoundedBezierPath(mediaRect, 4.0) fill];
   }
   [[NSColor colorWithCalibratedWhite:0.62 alpha:1.0] setStroke];
   [p setLineWidth:1.0];
@@ -44,9 +44,8 @@
 - (void)drawRect:(NSRect)dirtyRect {
   (void)dirtyRect;
   NSRect b = [self bounds];
-  NSGradient *g = [[[NSGradient alloc] initWithStartingColor:[NSColor colorWithCalibratedWhite:0.86 alpha:1.0]
-                                                 endingColor:[NSColor colorWithCalibratedWhite:0.72 alpha:1.0]] autorelease];
-  [g drawInRect:b angle:90.0];
+  [[NSColor colorWithCalibratedWhite:0.80 alpha:1.0] setFill];
+  NSRectFill(b);
   [[NSColor colorWithCalibratedWhite:0.58 alpha:1.0] setStroke];
   [NSBezierPath strokeLineFromPoint:NSMakePoint(NSMinX(b), NSMaxY(b) - 0.5)
                             toPoint:NSMakePoint(NSMaxX(b), NSMaxY(b) - 0.5)];
@@ -75,13 +74,12 @@ NSImage *ToolbarIconImage(NSString *name, CGFloat size) {
   (void)dirtyRect;
   NSRect b = [self bounds];
   NSRect r = NSInsetRect(b, 0.5, 0.5);
-  NSBezierPath *bg = [NSBezierPath bezierPathWithRoundedRect:r xRadius:4.0 yRadius:4.0];
-  NSColor *top = pressed_ ? [NSColor colorWithCalibratedWhite:0.70 alpha:1.0] : [NSColor colorWithCalibratedWhite:0.95 alpha:1.0];
-  NSColor *bottom = pressed_ ? [NSColor colorWithCalibratedWhite:0.86 alpha:1.0] : [NSColor colorWithCalibratedWhite:0.78 alpha:1.0];
-  NSGradient *g = [[[NSGradient alloc] initWithStartingColor:top endingColor:bottom] autorelease];
+  NSBezierPath *bg = RoundedBezierPath(r, 4.0);
+  NSColor *fill = pressed_ ? [NSColor colorWithCalibratedWhite:0.76 alpha:1.0] : [NSColor colorWithCalibratedWhite:0.88 alpha:1.0];
   [NSGraphicsContext saveGraphicsState];
   [bg addClip];
-  [g drawInRect:b angle:90.0];
+  [fill setFill];
+  NSRectFill(b);
   [NSGraphicsContext restoreGraphicsState];
   [[NSColor colorWithCalibratedWhite:0.48 alpha:1.0] setStroke];
   [bg setLineWidth:1.0];
@@ -99,8 +97,8 @@ NSImage *ToolbarIconImage(NSString *name, CGFloat size) {
   } else {
     NSRect left = NSMakeRect(w * 0.34, h * 0.28, w * 0.10, h * 0.44);
     NSRect right = NSMakeRect(w * 0.56, h * 0.28, w * 0.10, h * 0.44);
-    [[NSBezierPath bezierPathWithRoundedRect:left xRadius:1.0 yRadius:1.0] fill];
-    [[NSBezierPath bezierPathWithRoundedRect:right xRadius:1.0 yRadius:1.0] fill];
+    [RoundedBezierPath(left, 1.0) fill];
+    [RoundedBezierPath(right, 1.0) fill];
   }
 }
 
@@ -164,7 +162,7 @@ void SetPlaybackButtonIcon(PlaybackButtonView *button, BOOL paused) {
   CGFloat h = floor(src.height * s);
   NSRect imgRect = NSMakeRect(floor(NSMidX(b) - w / 2.0), floor(NSMidY(b) - h / 2.0), w, h);
   NSRect shadowRect = NSInsetRect(imgRect, -6.0, -6.0);
-  NSBezierPath *shadowPath = [NSBezierPath bezierPathWithRoundedRect:shadowRect xRadius:8.0 yRadius:8.0];
+  NSBezierPath *shadowPath = RoundedBezierPath(shadowRect, 8.0);
   [[NSColor colorWithCalibratedWhite:0.0 alpha:0.35] setFill];
   [shadowPath fill];
   [NSGraphicsContext saveGraphicsState];

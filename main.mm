@@ -9,6 +9,6 @@ int main(int argc, const char *argv[]) {
   [app setDelegate:del];
   [del createMenus];
   [app run];
-  [pool drain];
+  [pool release];
   return 0;
 }

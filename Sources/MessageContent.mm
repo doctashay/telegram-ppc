@@ -23,8 +23,8 @@ NSArray *LinkItemsFromTextAndEntities(NSString *text, NSArray *entities) {
       }
       if ([url length]) {
         [items addObject:[NSDictionary dictionaryWithObjectsAndKeys:
-          [NSNumber numberWithUnsignedInteger:loc], @"location",
-          [NSNumber numberWithUnsignedInteger:len], @"length",
+          [NSNumber numberWithUnsignedInt:(unsigned int)loc], @"location",
+          [NSNumber numberWithUnsignedInt:(unsigned int)len], @"length",
           url, @"url", nil]];
       }
     }
@@ -49,8 +49,8 @@ NSArray *LinkItemsFromTextAndEntities(NSString *text, NSArray *entities) {
     NSString *url = NormalizedURLString(raw);
     if ([url length]) {
       [items addObject:[NSDictionary dictionaryWithObjectsAndKeys:
-        [NSNumber numberWithUnsignedInteger:i], @"location",
-        [NSNumber numberWithUnsignedInteger:(end - i)], @"length",
+        [NSNumber numberWithUnsignedInt:(unsigned int)i], @"location",
+        [NSNumber numberWithUnsignedInt:(unsigned int)(end - i)], @"length",
         url, @"url", nil]];
     }
     i = end;
@@ -426,6 +426,22 @@ NSInteger CompareMessagesById(id lhs, id rhs, void *context) {
   return lid < rid ? NSOrderedAscending : (lid > rid ? NSOrderedDescending : NSOrderedSame);
 }
 
+static CGFloat TextLayoutHeight(NSString *text, NSDictionary *attrs, NSLineBreakMode mode, CGFloat maxWidth) {
+  NSMutableAttributedString *attr = [[[NSMutableAttributedString alloc] initWithString:text attributes:attrs] autorelease];
+  NSMutableParagraphStyle *style = [[[NSMutableParagraphStyle alloc] init] autorelease];
+  [style setLineBreakMode:mode];
+  [attr addAttribute:NSParagraphStyleAttributeName value:style range:NSMakeRange(0, [attr length])];
+
+  NSTextStorage *storage = [[[NSTextStorage alloc] initWithAttributedString:attr] autorelease];
+  NSLayoutManager *layout = [[[NSLayoutManager alloc] init] autorelease];
+  NSTextContainer *container = [[[NSTextContainer alloc] initWithContainerSize:NSMakeSize(maxWidth, 100000.0)] autorelease];
+  [container setLineFragmentPadding:0.0];
+  [layout addTextContainer:container];
+  [storage addLayoutManager:layout];
+  [layout glyphRangeForTextContainer:container];
+  return ceil([layout usedRectForTextContainer:container].size.height) + 3.0;
+}
+
 CGFloat TextHeightForWidth(NSString *text, NSFont *font, CGFloat maxWidth, int maxLines) {
   if ([text length] == 0) return 0;
   CGFloat lh = ceil([font pointSize] * 1.35);
@@ -452,10 +468,7 @@ CGFloat TextHeightForWidth(NSString *text, NSFont *font, CGFloat maxWidth, int m
       font, NSFontAttributeName,
       style, NSParagraphStyleAttributeName,
       nil];
-  NSRect r = [text boundingRectWithSize:NSMakeSize(maxWidth, 100000.0)
-                                options:NSStringDrawingUsesLineFragmentOrigin
-                             attributes:attrs];
-  CGFloat h = ceil(r.size.height) + 3.0;
+  CGFloat h = TextLayoutHeight(text, attrs, NSLineBreakByWordWrapping, maxWidth);
   if (h < lh) h = lh;
   if (maxLines > 0) {
     CGFloat cap = (CGFloat)maxLines * lh + 3.0;
@@ -497,10 +510,7 @@ CGFloat TextHeightForWidthAndBreakMode(NSString *text, NSFont *font, CGFloat max
       font, NSFontAttributeName,
       style, NSParagraphStyleAttributeName,
       nil];
-  NSRect r = [text boundingRectWithSize:NSMakeSize(maxWidth, 100000.0)
-                                options:NSStringDrawingUsesLineFragmentOrigin
-                             attributes:attrs];
-  CGFloat h = ceil(r.size.height) + 3.0;
+  CGFloat h = TextLayoutHeight(text, attrs, mode, maxWidth);
   if (h < lh) h = lh;
   if (maxLines > 0) {
     CGFloat cap = (CGFloat)maxLines * lh + 3.0;
@@ -584,13 +594,20 @@ NSString *TruncatedText(NSString *text, NSFont *font, CGFloat maxWidth, int maxL
 
 NSString *NormalizePreviewDescription(NSString *desc) {
   if (![desc isKindOfClass:[NSString class]] || [desc length] == 0) return @"";
-  NSArray *parts = [desc componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-  NSMutableArray *clean = [NSMutableArray array];
-  for (NSUInteger i = 0; i < [parts count]; i++) {
-    NSString *p = [parts objectAtIndex:i];
-    if ([p length] > 0) [clean addObject:p];
+  NSMutableString *collapsed = [NSMutableString string];
+  NSCharacterSet *spaceSet = [NSCharacterSet whitespaceAndNewlineCharacterSet];
+  BOOL pendingSpace = NO;
+  for (NSUInteger i = 0; i < [desc length]; i++) {
+    unichar ch = [desc characterAtIndex:i];
+    if ([spaceSet characterIsMember:ch]) {
+      pendingSpace = ([collapsed length] > 0);
+    } else {
+      if (pendingSpace) [collapsed appendString:@" "];
+      [collapsed appendFormat:@"%C", ch];
+      pendingSpace = NO;
+    }
   }
-  NSString *s = [clean componentsJoinedByString:@" "];
+  NSString *s = collapsed;
   NSUInteger maxLen = 180;
   if ([s length] <= maxLen) return s;
   NSRange cutRange = NSMakeRange(0, maxLen);

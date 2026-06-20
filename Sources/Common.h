@@ -1,6 +1,26 @@
 #pragma once
 
+#ifndef __cplusplus
+#include <stddef.h>
+#else
+#include <cstddef>
+extern "C" void _Exit(int) __attribute__((noreturn));
+#endif
+
 #import <Cocoa/Cocoa.h>
+#import <OpenGL/gl.h>
+
+#ifndef CGFLOAT_DEFINED
+typedef float CGFloat;
+#define CGFLOAT_DEFINED 1
+#endif
+
+#ifndef NSINTEGER_DEFINED
+typedef int NSInteger;
+typedef unsigned int NSUInteger;
+#define NSINTEGER_DEFINED 1
+#endif
+
 #include <dlfcn.h>
 #include <nlohmann/json.hpp>
 

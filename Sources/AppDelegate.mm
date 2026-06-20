@@ -187,7 +187,7 @@
     if (!callButton_) {
       callButton_ = [[NSButton alloc] initWithFrame:NSMakeRect(0, 0, 34, 28)];
       [callButton_ setButtonType:NSMomentaryPushInButton];
-      [callButton_ setBezelStyle:NSTexturedRoundedBezelStyle];
+      [callButton_ setBezelStyle:NSRoundedBezelStyle];
       [callButton_ setTitle:@""];
       [callButton_ setImage:ToolbarIconImage(@"phone_24.png", 18.0)];
       [callButton_ setImagePosition:NSImageOnly];
@@ -285,7 +285,7 @@
       [messageCellCache_ removeAllObjects];
       NSInteger rows = [messageTable_ numberOfRows];
       if (rows > 0) {
-        [messageTable_ noteHeightOfRowsWithIndexesChanged:[NSIndexSet indexSetWithIndexesInRange:NSMakeRange(0, (NSUInteger)rows)]];
+        [messageTable_ reloadData];
       }
       pendingMessageHeightInvalidation_ = NO;
     }
@@ -327,7 +327,6 @@
 
   mainSplitView_ = [[[NSSplitView alloc] initWithFrame:NSMakeRect(0, 22, w, h - 22)] autorelease];
   [mainSplitView_ setVertical:YES];
-  [mainSplitView_ setDividerStyle:NSSplitViewDividerStyleThin];
   [mainSplitView_ setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
   [cv addSubview:mainSplitView_];
 
@@ -337,7 +336,6 @@
   [conversationView_ setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
   [mainSplitView_ addSubview:sourceView];
   [mainSplitView_ addSubview:conversationView_];
-  [mainSplitView_ setPosition:284.0 ofDividerAtIndex:0];
 
   chatScrollView_ = [[[NSScrollView alloc] initWithFrame:[sourceView bounds]] autorelease];
   [chatScrollView_ setAutoresizingMask:NSViewWidthSizable | NSViewHeightSizable];
@@ -345,7 +343,7 @@
   [chatScrollView_ setBorderType:NSNoBorder];
   chatTable_ = [[[NSTableView alloc] initWithFrame:[[chatScrollView_ contentView] bounds]] autorelease];
   NSTableColumn *cc = [[[NSTableColumn alloc] initWithIdentifier:@"chat"] autorelease];
-  [cc setWidth:266]; [cc setResizingMask:NSTableColumnAutoresizingMask];
+  [cc setWidth:266];
   [cc setDataCell:[[[ChatCell alloc] init] autorelease]];
   [chatTable_ addTableColumn:cc];
   [chatTable_ setDelegate:self]; [chatTable_ setDataSource:self];
@@ -353,9 +351,7 @@
   [chatTable_ setUsesAlternatingRowBackgroundColors:NO];
   [chatTable_ setGridStyleMask:NSTableViewGridNone];
   [chatTable_ setBackgroundColor:[NSColor colorWithCalibratedRed:0.83 green:0.88 blue:0.94 alpha:1.0]];
-  [chatTable_ setSelectionHighlightStyle:NSTableViewSelectionHighlightStyleRegular];
   [chatTable_ setHeaderView:nil];
-  [chatTable_ setFocusRingType:NSFocusRingTypeNone];
   [chatScrollView_ setDocumentView:chatTable_];
   [sourceView addSubview:chatScrollView_];
 
@@ -370,17 +366,17 @@
   [callBar_ addSubview:callBarLabel_];
   callAcceptBtn_ = [[[NSButton alloc] initWithFrame:NSMakeRect(callBar_.frame.size.width - 210, 4, 70, 23)] autorelease];
   [callAcceptBtn_ setTitle:@"Accept"]; [callAcceptBtn_ setButtonType:NSMomentaryPushInButton];
-  [callAcceptBtn_ setBezelStyle:NSTexturedRoundedBezelStyle]; [callAcceptBtn_ setFont:[NSFont systemFontOfSize:11]];
+  [callAcceptBtn_ setBezelStyle:NSRoundedBezelStyle]; [callAcceptBtn_ setFont:[NSFont systemFontOfSize:11]];
   [callAcceptBtn_ setTarget:self]; [callAcceptBtn_ setAction:@selector(acceptCallAction:)];
   [callBar_ addSubview:callAcceptBtn_];
   callDeclineBtn_ = [[[NSButton alloc] initWithFrame:NSMakeRect(callBar_.frame.size.width - 132, 4, 70, 23)] autorelease];
   [callDeclineBtn_ setTitle:@"Decline"]; [callDeclineBtn_ setButtonType:NSMomentaryPushInButton];
-  [callDeclineBtn_ setBezelStyle:NSTexturedRoundedBezelStyle]; [callDeclineBtn_ setFont:[NSFont systemFontOfSize:11]];
+  [callDeclineBtn_ setBezelStyle:NSRoundedBezelStyle]; [callDeclineBtn_ setFont:[NSFont systemFontOfSize:11]];
   [callDeclineBtn_ setTarget:self]; [callDeclineBtn_ setAction:@selector(declineCallAction:)];
   [callBar_ addSubview:callDeclineBtn_];
   callEndBtn_ = [[[NSButton alloc] initWithFrame:NSMakeRect(callBar_.frame.size.width - 90, 4, 80, 23)] autorelease];
   [callEndBtn_ setTitle:@"End Call"]; [callEndBtn_ setButtonType:NSMomentaryPushInButton];
-  [callEndBtn_ setBezelStyle:NSTexturedRoundedBezelStyle]; [callEndBtn_ setFont:[NSFont systemFontOfSize:11]];
+  [callEndBtn_ setBezelStyle:NSRoundedBezelStyle]; [callEndBtn_ setFont:[NSFont systemFontOfSize:11]];
   [callEndBtn_ setTarget:self]; [callEndBtn_ setAction:@selector(endCallAction:)];
   [callEndBtn_ setHidden:YES];
   [callBar_ addSubview:callEndBtn_];
@@ -412,7 +408,7 @@
   cancelReplyBtn_ = [[[NSButton alloc] initWithFrame:NSMakeRect(10, 1, 70, 22)] autorelease];
   [cancelReplyBtn_ setTitle:@"Cancel"];
   [cancelReplyBtn_ setButtonType:NSMomentaryPushInButton];
-  [cancelReplyBtn_ setBezelStyle:NSTexturedRoundedBezelStyle];
+  [cancelReplyBtn_ setBezelStyle:NSRoundedBezelStyle];
   [cancelReplyBtn_ setFont:[NSFont systemFontOfSize:11]];
   [cancelReplyBtn_ setTarget:self]; [cancelReplyBtn_ setAction:@selector(cancelReplyEdit)];
   [replyBarContainer_ addSubview:cancelReplyBtn_];
@@ -428,7 +424,7 @@
 
   attachButton_ = [[[NSButton alloc] initWithFrame:NSMakeRect(10, 10, 78, 23)] autorelease];
   [attachButton_ setButtonType:NSMomentaryPushInButton];
-  [attachButton_ setBezelStyle:NSTexturedRoundedBezelStyle];
+  [attachButton_ setBezelStyle:NSRoundedBezelStyle];
   [attachButton_ setTitle:@"Attach"];
   [attachButton_ setFont:[NSFont systemFontOfSize:11]];
   [attachButton_ setToolTip:@"Attach a file"];
@@ -443,7 +439,7 @@
 
   sendButton_ = [[[NSButton alloc] initWithFrame:NSMakeRect(w - 366, 10, 72, 23)] autorelease];
   [sendButton_ setButtonType:NSMomentaryPushInButton];
-  [sendButton_ setBezelStyle:NSTexturedRoundedBezelStyle];
+  [sendButton_ setBezelStyle:NSRoundedBezelStyle];
   [sendButton_ setTitle:@"Send"];
   [sendButton_ setFont:[NSFont systemFontOfSize:11]];
   [sendButton_ setToolTip:@"Send message"];
@@ -646,7 +642,7 @@
   NSPoint pt = [tv convertPoint:[event locationInWindow] fromView:nil];
   NSInteger row = [tv rowAtPoint:pt];
   if (row < 0) return nil;
-  [tv selectRowIndexes:[NSIndexSet indexSetWithIndex:(NSUInteger)row] byExtendingSelection:NO];
+  [tv selectRow:row byExtendingSelection:NO];
 
   NSNumber *cid = [NSNumber numberWithLongLong:selectedChatId_];
   NSArray *ms = [messagesByChatId_ objectForKey:cid];

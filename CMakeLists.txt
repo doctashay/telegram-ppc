@@ -14,7 +14,7 @@ set(TELEGRAM_PPC_FFMPEG_EXTRA_LIBS "" CACHE STRING "Semicolon-separated librarie
 set(TELEGRAM_PPC_BUNDLE_LIBS "" CACHE STRING "Semicolon-separated dylibs to copy into Contents/Frameworks")
 set(TELEGRAM_PPC_TDLIB_LIBRARY "" CACHE FILEPATH "Optional TDLib dylib override, copied as libtdjson.dylib")
 set(TELEGRAM_PPC_INSTALL_NAME_TOOL "" CACHE FILEPATH "Optional install_name_tool path for bundle load-command fixups")
-set(TELEGRAM_PPC_VERSION "0.2.0" CACHE STRING "CFBundleShortVersionString value")
+set(TELEGRAM_PPC_VERSION "0.2.1" CACHE STRING "CFBundleShortVersionString value")
 set(TELEGRAM_PPC_BUILD_NUMBER "0" CACHE STRING "CFBundleVersion value")
 
 project(TelegramPPC LANGUAGES CXX OBJCXX)

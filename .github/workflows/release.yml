@@ -80,7 +80,7 @@ jobs:
           if [[ "$GITHUB_REF" != refs/tags/v* && "$RELEASE_TAG_INPUT" == v* ]]; then
             version="${RELEASE_TAG_INPUT#v}"
           elif [[ "$GITHUB_REF" != refs/tags/v* ]]; then
-            version="0.2.0"
+            version="0.2.1"
           fi
           {
             echo "TELEGRAM_PPC_VERSION=$version"
@@ -152,7 +152,7 @@ jobs:
           if [[ "$GITHUB_REF" != refs/tags/v* && "$RELEASE_TAG_INPUT" == v* ]]; then
             version="${RELEASE_TAG_INPUT#v}"
           elif [[ "$GITHUB_REF" != refs/tags/v* ]]; then
-            version="0.2.0"
+            version="0.2.1"
           fi
           {
             echo "TELEGRAM_PPC_VERSION=$version"
@@ -233,8 +233,8 @@ jobs:
           printf '%s\n' "$dmg_name" > release-staging/TelegramPPC-universal.artifact-name
 
           for arch in ppc i386 x86_64; do
-            tar -czf "release-staging/TelegramPPC-${TELEGRAM_PPC_VERSION}-${arch}.tgz" -C "build/build-$arch" TelegramPPC.app
-            sha256sum "release-staging/TelegramPPC-${TELEGRAM_PPC_VERSION}-${arch}.tgz" > "release-staging/TelegramPPC-${TELEGRAM_PPC_VERSION}-${arch}.tgz.sha256"
+            tar -czf "release-staging/TelegramPPC-${TELEGRAM_PPC_VERSION}-${arch}-app.tgz" -C "build/build-$arch" TelegramPPC.app
+            printf 'TelegramPPC-%s-%s.dmg\n' "$TELEGRAM_PPC_VERSION" "$arch" > "release-staging/TelegramPPC-${arch}.artifact-name"
           done
 
       - name: Upload release staging
@@ -243,13 +243,13 @@ jobs:
           name: TelegramPPC-release-staging
           path: |
             release-staging/TelegramPPC-*-universal-app.tgz
-            release-staging/TelegramPPC-*-ppc.tgz
-            release-staging/TelegramPPC-*-ppc.tgz.sha256
-            release-staging/TelegramPPC-*-i386.tgz
-            release-staging/TelegramPPC-*-i386.tgz.sha256
-            release-staging/TelegramPPC-*-x86_64.tgz
-            release-staging/TelegramPPC-*-x86_64.tgz.sha256
+            release-staging/TelegramPPC-*-ppc-app.tgz
+            release-staging/TelegramPPC-*-i386-app.tgz
+            release-staging/TelegramPPC-*-x86_64-app.tgz
             release-staging/TelegramPPC-universal.artifact-name
+            release-staging/TelegramPPC-ppc.artifact-name
+            release-staging/TelegramPPC-i386.artifact-name
+            release-staging/TelegramPPC-x86_64.artifact-name
 
   package:
     name: Package DMG
@@ -263,34 +263,45 @@ jobs:
           name: TelegramPPC-release-staging
           path: dist
 
-      - name: Create DMG
+      - name: Create DMGs
         run: |
           set -euo pipefail
 
-          dmg_name="$(cat dist/TelegramPPC-universal.artifact-name)"
-          app_archive="$(find dist -maxdepth 1 -name 'TelegramPPC-*-universal-app.tgz' -print -quit)"
-          test -n "$app_archive"
+          create_dmg() {
+            local flavor="$1"
+            local app_archive="$2"
+            local dmg_name
 
-          mkdir -p dmg-work dmg-root
-          tar -xzf "$app_archive" -C dmg-work
-          cp -a dmg-work/TelegramPPC.app dmg-root/
+            dmg_name="$(cat "dist/TelegramPPC-${flavor}.artifact-name")"
+            test -n "$app_archive"
 
-          hdiutil create \
-            -volname TelegramPPC \
-            -srcfolder dmg-root \
-            -fs HFS+ \
-            -layout SPUD \
-            -ov \
-            -format UDZO \
-            "dist/$dmg_name"
-          shasum -a 256 "dist/$dmg_name" > "dist/$dmg_name.sha256"
+            rm -rf dmg-work dmg-root dmg-mount
+            mkdir -p dmg-work dmg-root
+            tar -xzf "$app_archive" -C dmg-work
+            cp -a dmg-work/TelegramPPC.app dmg-root/
 
-          mkdir -p dmg-mount
-          hdiutil attach -nobrowse -mountpoint dmg-mount "dist/$dmg_name"
-          test -d dmg-mount/TelegramPPC.app
-          hdiutil detach dmg-mount
+            hdiutil create \
+              -volname TelegramPPC \
+              -srcfolder dmg-root \
+              -fs HFS+ \
+              -layout SPUD \
+              -ov \
+              -format UDZO \
+              "dist/$dmg_name"
+            shasum -a 256 "dist/$dmg_name" > "dist/$dmg_name.sha256"
 
-          rm -f "$app_archive"
+            mkdir -p dmg-mount
+            hdiutil attach -nobrowse -mountpoint dmg-mount "dist/$dmg_name"
+            test -d dmg-mount/TelegramPPC.app
+            hdiutil detach dmg-mount
+          }
+
+          create_dmg universal "$(find dist -maxdepth 1 -name 'TelegramPPC-*-universal-app.tgz' -print -quit)"
+          for arch in ppc i386 x86_64; do
+            create_dmg "$arch" "$(find dist -maxdepth 1 -name "TelegramPPC-*-${arch}-app.tgz" -print -quit)"
+          done
+
+          rm -f dist/TelegramPPC-*-app.tgz
           rm -rf dmg-work dmg-root dmg-mount
 
       - name: Upload build artifact
@@ -300,13 +311,13 @@ jobs:
           path: |
             dist/TelegramPPC-*-universal.dmg
             dist/TelegramPPC-*-universal.dmg.sha256
-            dist/TelegramPPC-*-ppc.tgz
-            dist/TelegramPPC-*-ppc.tgz.sha256
-            dist/TelegramPPC-*-i386.tgz
-            dist/TelegramPPC-*-i386.tgz.sha256
-            dist/TelegramPPC-*-x86_64.tgz
-            dist/TelegramPPC-*-x86_64.tgz.sha256
-            dist/TelegramPPC-universal.artifact-name
+            dist/TelegramPPC-*-ppc.dmg
+            dist/TelegramPPC-*-ppc.dmg.sha256
+            dist/TelegramPPC-*-i386.dmg
+            dist/TelegramPPC-*-i386.dmg.sha256
+            dist/TelegramPPC-*-x86_64.dmg
+            dist/TelegramPPC-*-x86_64.dmg.sha256
+            dist/TelegramPPC-*.artifact-name
 
   publish:
     name: Publish release
@@ -345,10 +356,10 @@ jobs:
           gh release upload "$tag" \
             "dist/$asset_name" \
             "dist/$asset_name.sha256" \
-            dist/TelegramPPC-*-ppc.tgz \
-            dist/TelegramPPC-*-ppc.tgz.sha256 \
-            dist/TelegramPPC-*-i386.tgz \
-            dist/TelegramPPC-*-i386.tgz.sha256 \
-            dist/TelegramPPC-*-x86_64.tgz \
-            dist/TelegramPPC-*-x86_64.tgz.sha256 \
+            dist/TelegramPPC-*-ppc.dmg \
+            dist/TelegramPPC-*-ppc.dmg.sha256 \
+            dist/TelegramPPC-*-i386.dmg \
+            dist/TelegramPPC-*-i386.dmg.sha256 \
+            dist/TelegramPPC-*-x86_64.dmg \
+            dist/TelegramPPC-*-x86_64.dmg.sha256 \
             --clobber

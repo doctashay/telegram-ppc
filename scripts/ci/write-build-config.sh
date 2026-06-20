@@ -56,7 +56,7 @@ quote() {
   printf 'export TELEGRAM_PPC_OTOOL=%s\n' "$(quote "$TELEGRAM_PPC_OTOOL")"
   printf 'export TELEGRAM_PPC_LIPO=%s\n' "$(quote "$TELEGRAM_PPC_LIPO")"
   printf 'export TELEGRAM_PPC_JOBS=%s\n' "$(quote "$(optional_env TELEGRAM_PPC_JOBS 2)")"
-  printf 'export TELEGRAM_PPC_VERSION=%s\n' "$(quote "$(optional_env TELEGRAM_PPC_VERSION 0.2.0)")"
+  printf 'export TELEGRAM_PPC_VERSION=%s\n' "$(quote "$(optional_env TELEGRAM_PPC_VERSION 0.2.1)")"
   printf 'export TELEGRAM_PPC_BUILD_NUMBER=%s\n' "$(quote "$(optional_env TELEGRAM_PPC_BUILD_NUMBER 0)")"
   printf 'export TELEGRAM_PPC_PPC_CXX=%s\n' "$(quote "$TELEGRAM_PPC_PPC_CXX")"
   printf 'export TELEGRAM_PPC_I386_CXX=%s\n' "$(quote "$TELEGRAM_PPC_I386_CXX")"

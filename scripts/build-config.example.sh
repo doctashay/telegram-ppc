@@ -11,6 +11,8 @@ export TELEGRAM_PPC_INSTALL_NAME_TOOL="${TELEGRAM_PPC_INSTALL_NAME_TOOL:-/path/t
 export TELEGRAM_PPC_OTOOL="${TELEGRAM_PPC_OTOOL:-/path/to/otool}"
 export TELEGRAM_PPC_LIPO="${TELEGRAM_PPC_LIPO:-/path/to/lipo}"
 export TELEGRAM_PPC_JOBS="${TELEGRAM_PPC_JOBS:-2}"
+export TELEGRAM_PPC_VERSION="${TELEGRAM_PPC_VERSION:-0.2.0}"
+export TELEGRAM_PPC_BUILD_NUMBER="${TELEGRAM_PPC_BUILD_NUMBER:-0}"
 
 # Release toolchains. Native single-architecture builds do not need this file.
 export TELEGRAM_PPC_PPC_CXX="${TELEGRAM_PPC_PPC_CXX:-/path/to/powerpc-apple-darwin9-g++}"

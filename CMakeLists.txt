@@ -14,6 +14,8 @@ set(TELEGRAM_PPC_FFMPEG_EXTRA_LIBS "" CACHE STRING "Semicolon-separated librarie
 set(TELEGRAM_PPC_BUNDLE_LIBS "" CACHE STRING "Semicolon-separated dylibs to copy into Contents/Frameworks")
 set(TELEGRAM_PPC_TDLIB_LIBRARY "" CACHE FILEPATH "Optional TDLib dylib override, copied as libtdjson.dylib")
 set(TELEGRAM_PPC_INSTALL_NAME_TOOL "" CACHE FILEPATH "Optional install_name_tool path for bundle load-command fixups")
+set(TELEGRAM_PPC_VERSION "0.2.0" CACHE STRING "CFBundleShortVersionString value")
+set(TELEGRAM_PPC_BUILD_NUMBER "0" CACHE STRING "CFBundleVersion value")
 
 project(TelegramPPC LANGUAGES CXX OBJCXX)
 
@@ -186,6 +188,8 @@ set_source_files_properties(${TELEGRAM_PPC_RESOURCES}
 set_target_properties(TelegramPPC PROPERTIES
   OUTPUT_NAME TelegramPPC
   MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
+  MACOSX_BUNDLE_SHORT_VERSION_STRING "${TELEGRAM_PPC_VERSION}"
+  MACOSX_BUNDLE_BUNDLE_VERSION "${TELEGRAM_PPC_BUILD_NUMBER}"
   CXX_STANDARD 20
   CXX_STANDARD_REQUIRED YES
   CXX_EXTENSIONS YES

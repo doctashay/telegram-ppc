@@ -1,0 +1,74 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - gh-actions
+
+permissions:
+  contents: read
+
+jobs:
+  hygiene:
+    name: Repository hygiene
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake shellcheck
+
+      - name: Check shell syntax
+        run: |
+          bash -n scripts/build-universal.sh
+          bash -n scripts/build-ffmpeg-static.sh
+          bash -n scripts/ci/bootstrap-common-deps.sh
+          bash -n scripts/ci/bootstrap-darwin-xtools.sh
+          bash -n scripts/ci/bootstrap-ffmpeg.sh
+          bash -n scripts/ci/bootstrap-gcc14.sh
+          bash -n scripts/ci/bootstrap-openssl.sh
+          bash -n scripts/ci/bootstrap-osxcross.sh
+          bash -n scripts/ci/bootstrap-tdlib.sh
+          bash -n scripts/ci/bootstrap-zlib.sh
+          bash -n scripts/ci/check-repo.sh
+          bash -n scripts/ci/write-build-config.sh
+          bash -n scripts/ci/verify-release-app.sh
+
+      - name: Run ShellCheck
+        run: |
+          shellcheck \
+            scripts/build-universal.sh \
+            scripts/build-ffmpeg-static.sh \
+            scripts/ci/*.sh
+
+      - name: Lint GitHub Actions workflows
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/repo" \
+            -w /repo \
+            rhysd/actionlint:latest \
+            .github/workflows/ci.yml \
+            .github/workflows/release.yml
+
+      - name: Scan for committed secrets
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/repo" \
+            -w /repo \
+            zricethezav/gitleaks:latest \
+            detect --source /repo --no-banner --redact --verbose
+
+      - name: Check repository hygiene
+        run: scripts/ci/check-repo.sh
+
+      - name: Prepare dummy credentials
+        run: cp TelegramCredentials.example.h TelegramCredentials.h
+
+      - name: Verify CMake metadata is readable
+        run: cmake --version

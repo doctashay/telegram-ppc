@@ -1,0 +1,354 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload_release:
+        description: Upload artifact to the GitHub Release for this ref
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      release_tag:
+        description: Existing or new release tag to upload to when upload_release is true
+        required: false
+        type: string
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  packages: read
+
+env:
+  TELEGRAM_PPC_JOBS: "2"
+  TELEGRAM_PPC_FFMPEG_LINKAGE: static
+  TELEGRAM_PPC_TOOLCHAIN_IMAGE: ghcr.io/doctashay/telegramppc-darwin-universal:latest
+
+jobs:
+  build:
+    name: Build ${{ matrix.arch }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - ppc
+          - i386
+          - x86_64
+    env:
+      TOOLCHAIN_IMAGE: ghcr.io/doctashay/telegramppc-darwin-universal:latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Log in to GitHub Container Registry
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_PAT || github.token }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Pull toolchain image
+        run: docker pull "$TOOLCHAIN_IMAGE"
+
+      - name: Write Telegram credentials
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+        run: |
+          if [ -z "$TELEGRAM_API_ID" ] || [ -z "$TELEGRAM_API_HASH" ]; then
+            echo "TELEGRAM_API_ID and TELEGRAM_API_HASH secrets are required" >&2
+            exit 1
+          fi
+          {
+            printf '%s\n' '#pragma once'
+            printf '\n'
+            printf '#define TELEGRAM_API_ID %s\n' "$TELEGRAM_API_ID"
+            printf '#define TELEGRAM_API_HASH @"%s"\n' "$TELEGRAM_API_HASH"
+          } > TelegramCredentials.h
+
+      - name: Set app version
+        env:
+          RELEASE_TAG_INPUT: ${{ github.event.inputs.release_tag }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [[ "$GITHUB_REF" != refs/tags/v* && "$RELEASE_TAG_INPUT" == v* ]]; then
+            version="${RELEASE_TAG_INPUT#v}"
+          elif [[ "$GITHUB_REF" != refs/tags/v* ]]; then
+            version="0.2.0"
+          fi
+          {
+            echo "TELEGRAM_PPC_VERSION=$version"
+            echo "TELEGRAM_PPC_BUILD_NUMBER=${{ github.run_number }}"
+          } >> "$GITHUB_ENV"
+
+      - name: Build ${{ matrix.arch }} app
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/work" \
+            -e TELEGRAM_PPC_JOBS \
+            -e TELEGRAM_PPC_FFMPEG_LINKAGE \
+            -e TELEGRAM_PPC_VERSION \
+            -e TELEGRAM_PPC_BUILD_NUMBER \
+            "$TOOLCHAIN_IMAGE" \
+            bash -lc '
+              set -euo pipefail
+              cd /work
+              . /opt/ppc-darwin/bin/telegramppc-env
+              export TELEGRAM_PPC_BUILD_ROOT=/work/build
+              export TELEGRAM_PPC_DIST_DIR=/work/dist
+              export TELEGRAM_PPC_DEPENDENCY_ROOTS=/opt/ppc-darwin/macports-ppc/opt/local
+              scripts/ci/write-build-config.sh local-build-config.ci.sh
+              scripts/build-universal.sh --config local-build-config.ci.sh --clean --arch "${{ matrix.arch }}" --skip-assemble
+            '
+          sudo chown -R "$USER:$USER" build local-build-config.ci.sh
+
+      - name: Remove transient secrets
+        if: always()
+        run: rm -f TelegramCredentials.h local-build-config.ci.sh
+
+      - name: Pack thin app
+        run: tar -czf "thin-${{ matrix.arch }}.tgz" -C "build/build-${{ matrix.arch }}" TelegramPPC.app
+
+      - name: Upload thin app
+        uses: actions/upload-artifact@v7
+        with:
+          name: thin-app-${{ matrix.arch }}
+          path: thin-${{ matrix.arch }}.tgz
+          retention-days: 14
+
+  assemble:
+    name: Assemble universal app
+    runs-on: ubuntu-24.04
+    needs: build
+    env:
+      TOOLCHAIN_IMAGE: ghcr.io/doctashay/telegramppc-darwin-universal:latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Log in to GitHub Container Registry
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_PAT || github.token }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Pull toolchain image
+        run: docker pull "$TOOLCHAIN_IMAGE"
+
+      - name: Verify toolchain image
+        run: docker run --rm "$TOOLCHAIN_IMAGE" ppc-darwin-smoke
+
+      - name: Set app version
+        env:
+          RELEASE_TAG_INPUT: ${{ github.event.inputs.release_tag }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if [[ "$GITHUB_REF" != refs/tags/v* && "$RELEASE_TAG_INPUT" == v* ]]; then
+            version="${RELEASE_TAG_INPUT#v}"
+          elif [[ "$GITHUB_REF" != refs/tags/v* ]]; then
+            version="0.2.0"
+          fi
+          {
+            echo "TELEGRAM_PPC_VERSION=$version"
+            echo "TELEGRAM_PPC_BUILD_NUMBER=${{ github.run_number }}"
+          } >> "$GITHUB_ENV"
+
+      - name: Download thin apps
+        uses: actions/download-artifact@v8
+        with:
+          pattern: thin-app-*
+          merge-multiple: true
+          path: thin-apps
+
+      - name: Unpack thin apps
+        run: |
+          for arch in ppc i386 x86_64; do
+            mkdir -p "build/build-$arch"
+            tar -xzf "thin-apps/thin-$arch.tgz" -C "build/build-$arch"
+          done
+
+      - name: Assemble and verify universal app
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/work" \
+            -e TELEGRAM_PPC_JOBS \
+            -e TELEGRAM_PPC_FFMPEG_LINKAGE \
+            -e TELEGRAM_PPC_VERSION \
+            -e TELEGRAM_PPC_BUILD_NUMBER \
+            "$TOOLCHAIN_IMAGE" \
+            bash -lc '
+              set -euo pipefail
+              cd /work
+              . /opt/ppc-darwin/bin/telegramppc-env
+              export TELEGRAM_PPC_BUILD_ROOT=/work/build
+              export TELEGRAM_PPC_DIST_DIR=/work/dist
+              export TELEGRAM_PPC_DEPENDENCY_ROOTS=/opt/ppc-darwin/macports-ppc/opt/local
+              scripts/ci/write-build-config.sh local-build-config.ci.sh
+              scripts/build-universal.sh --config local-build-config.ci.sh --skip-build
+              scripts/ci/verify-release-app.sh dist/TelegramPPC.app
+              "$TELEGRAM_PPC_LIPO" -info dist/TelegramPPC.app/Contents/MacOS/TelegramPPC
+              "$TELEGRAM_PPC_LIPO" -info dist/TelegramPPC.app/Contents/Frameworks/libtdjson.dylib
+            '
+          sudo chown -R "$USER:$USER" build dist local-build-config.ci.sh
+
+      - name: Verify app version
+        run: |
+          python3 - <<'PY'
+          import os
+          import plistlib
+          from pathlib import Path
+
+          plist_path = Path("dist/TelegramPPC.app/Contents/Info.plist")
+          with plist_path.open("rb") as fh:
+              plist = plistlib.load(fh)
+
+          expected_version = os.environ["TELEGRAM_PPC_VERSION"]
+          expected_build = os.environ["TELEGRAM_PPC_BUILD_NUMBER"]
+          actual_version = plist.get("CFBundleShortVersionString")
+          actual_build = plist.get("CFBundleVersion")
+
+          if actual_version != expected_version:
+              raise SystemExit(f"CFBundleShortVersionString is {actual_version!r}, expected {expected_version!r}")
+          if actual_build != expected_build:
+              raise SystemExit(f"CFBundleVersion is {actual_build!r}, expected {expected_build!r}")
+
+          print(f"verified app version {actual_version} ({actual_build})")
+          PY
+
+      - name: Remove transient config
+        if: always()
+        run: rm -f local-build-config.ci.sh
+
+      - name: Package release staging
+        run: |
+          mkdir -p release-staging
+          tar -czf "release-staging/TelegramPPC-${TELEGRAM_PPC_VERSION}-universal-app.tgz" -C dist TelegramPPC.app
+          dmg_name="TelegramPPC-${TELEGRAM_PPC_VERSION}-universal.dmg"
+          printf '%s\n' "$dmg_name" > release-staging/TelegramPPC-universal.artifact-name
+
+          for arch in ppc i386 x86_64; do
+            tar -czf "release-staging/TelegramPPC-${TELEGRAM_PPC_VERSION}-${arch}.tgz" -C "build/build-$arch" TelegramPPC.app
+            sha256sum "release-staging/TelegramPPC-${TELEGRAM_PPC_VERSION}-${arch}.tgz" > "release-staging/TelegramPPC-${TELEGRAM_PPC_VERSION}-${arch}.tgz.sha256"
+          done
+
+      - name: Upload release staging
+        uses: actions/upload-artifact@v7
+        with:
+          name: TelegramPPC-release-staging
+          path: |
+            release-staging/TelegramPPC-*-universal-app.tgz
+            release-staging/TelegramPPC-*-ppc.tgz
+            release-staging/TelegramPPC-*-ppc.tgz.sha256
+            release-staging/TelegramPPC-*-i386.tgz
+            release-staging/TelegramPPC-*-i386.tgz.sha256
+            release-staging/TelegramPPC-*-x86_64.tgz
+            release-staging/TelegramPPC-*-x86_64.tgz.sha256
+            release-staging/TelegramPPC-universal.artifact-name
+
+  package:
+    name: Package DMG
+    runs-on: macos-latest
+    needs: assemble
+
+    steps:
+      - name: Download release staging
+        uses: actions/download-artifact@v8
+        with:
+          name: TelegramPPC-release-staging
+          path: dist
+
+      - name: Create DMG
+        run: |
+          set -euo pipefail
+
+          dmg_name="$(cat dist/TelegramPPC-universal.artifact-name)"
+          app_archive="$(find dist -maxdepth 1 -name 'TelegramPPC-*-universal-app.tgz' -print -quit)"
+          test -n "$app_archive"
+
+          mkdir -p dmg-work dmg-root
+          tar -xzf "$app_archive" -C dmg-work
+          cp -a dmg-work/TelegramPPC.app dmg-root/
+
+          hdiutil create \
+            -volname TelegramPPC \
+            -srcfolder dmg-root \
+            -fs HFS+ \
+            -layout SPUD \
+            -ov \
+            -format UDZO \
+            "dist/$dmg_name"
+          shasum -a 256 "dist/$dmg_name" > "dist/$dmg_name.sha256"
+
+          mkdir -p dmg-mount
+          hdiutil attach -nobrowse -mountpoint dmg-mount "dist/$dmg_name"
+          test -d dmg-mount/TelegramPPC.app
+          hdiutil detach dmg-mount
+
+          rm -f "$app_archive"
+          rm -rf dmg-work dmg-root dmg-mount
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: TelegramPPC-universal
+          path: |
+            dist/TelegramPPC-*-universal.dmg
+            dist/TelegramPPC-*-universal.dmg.sha256
+            dist/TelegramPPC-*-ppc.tgz
+            dist/TelegramPPC-*-ppc.tgz.sha256
+            dist/TelegramPPC-*-i386.tgz
+            dist/TelegramPPC-*-i386.tgz.sha256
+            dist/TelegramPPC-*-x86_64.tgz
+            dist/TelegramPPC-*-x86_64.tgz.sha256
+            dist/TelegramPPC-universal.artifact-name
+
+  publish:
+    name: Publish release
+    runs-on: ubuntu-24.04
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.upload_release == 'true')
+    permissions:
+      contents: write
+      packages: read
+
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: TelegramPPC-universal
+          path: dist
+
+      - name: Upload GitHub Release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG_INPUT: ${{ github.event.inputs.release_tag }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          if [ -n "$RELEASE_TAG_INPUT" ]; then
+            tag="$RELEASE_TAG_INPUT"
+          fi
+          if [ "$tag" = "${GITHUB_REF_NAME}" ] && ! [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            echo "release_tag is required when uploading a release from a non-tag ref" >&2
+            exit 1
+          fi
+          asset_name="$(cat dist/TelegramPPC-universal.artifact-name)"
+          test -f "dist/$asset_name"
+          test -f "dist/$asset_name.sha256"
+          gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" --notes ""
+          gh release upload "$tag" \
+            "dist/$asset_name" \
+            "dist/$asset_name.sha256" \
+            dist/TelegramPPC-*-ppc.tgz \
+            dist/TelegramPPC-*-ppc.tgz.sha256 \
+            dist/TelegramPPC-*-i386.tgz \
+            dist/TelegramPPC-*-i386.tgz.sha256 \
+            dist/TelegramPPC-*-x86_64.tgz \
+            dist/TelegramPPC-*-x86_64.tgz.sha256 \
+            --clobber

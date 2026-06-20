@@ -7,6 +7,10 @@ Usage: scripts/build-universal.sh [--config PATH] [--clean] [--skip-build]
 
 Build ppc, i386, and x86_64 thin apps, then assemble dist/TelegramPPC.app.
 Machine-specific paths come from local-build-config.sh.
+
+Options:
+  --arch ARCH       Build only one thin app: ppc, i386, x86_64, or all.
+  --skip-assemble  Build thin app slices without assembling the universal app.
 USAGE
 }
 
@@ -14,16 +18,25 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 config="$repo_root/local-build-config.sh"
 clean=0
 skip_build=0
+target_arch=all
+skip_assemble=0
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --config) config="$2"; shift 2 ;;
     --clean) clean=1; shift ;;
     --skip-build) skip_build=1; shift ;;
+    --arch) target_arch="$2"; shift 2 ;;
+    --skip-assemble) skip_assemble=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
 done
+
+case "$target_arch" in
+  all|ppc|i386|x86_64) ;;
+  *) echo "unknown architecture: $target_arch" >&2; usage >&2; exit 2 ;;
+esac
 
 if [ ! -f "$config" ]; then
   echo "missing config: $config" >&2
@@ -87,6 +100,8 @@ build_slice() {
       -DTELEGRAM_PPC_CPU_TARGET="$cpu" \
       -DTELEGRAM_PPC_DEPENDENCY_ROOTS="${TELEGRAM_PPC_DEPENDENCY_ROOTS:-}" \
       -DTELEGRAM_PPC_MIN_SYSTEM_VERSION=10.4 \
+      -DTELEGRAM_PPC_VERSION="${TELEGRAM_PPC_VERSION:-0.2.0}" \
+      -DTELEGRAM_PPC_BUILD_NUMBER="${TELEGRAM_PPC_BUILD_NUMBER:-0}" \
       -DTELEGRAM_PPC_FFMPEG_ROOT="$ffmpeg_root" \
       -DTELEGRAM_PPC_FFMPEG_LINKAGE="$TELEGRAM_PPC_FFMPEG_LINKAGE" \
       -DTELEGRAM_PPC_FFMPEG_EXTRA_LIBS="$cmake_ffmpeg_extra_libs" \
@@ -96,10 +111,13 @@ build_slice() {
     )
     if [ -n "${TELEGRAM_PPC_CMAKE_ARGS:-}" ]; then
       # Word splitting is intentional for local one-off CMake overrides.
+      # shellcheck disable=SC2206
       cmake_args+=($TELEGRAM_PPC_CMAKE_ARGS)
     fi
     cmake "${cmake_args[@]}"
     cmake --build "$build_dir" -- -j"${TELEGRAM_PPC_JOBS:-2}"
+    normalize_bundle "$build_dir/TelegramPPC.app"
+    verify_relocatable_bundle "$build_dir/TelegramPPC.app"
   fi
 }
 
@@ -149,10 +167,15 @@ normalize_bundle() {
 
 verify_bundle() {
   local app=$1
-  local forbidden_pattern="${TELEGRAM_PPC_FORBIDDEN_LOAD_PATH_PATTERN:-/opt/local|/home/|/mnt/|/tmp/}"
-  local bad_loads
 
   "$TELEGRAM_PPC_LIPO" "$app/Contents/MacOS/TelegramPPC" -verify_arch ppc i386 x86_64
+  verify_relocatable_bundle "$app"
+}
+
+verify_relocatable_bundle() {
+  local app=$1
+  local forbidden_pattern="${TELEGRAM_PPC_FORBIDDEN_LOAD_PATH_PATTERN:-/opt/local|/home/|/mnt/|/tmp/}"
+  local bad_loads
 
   bad_loads="$(
     {
@@ -222,7 +245,16 @@ require_file TELEGRAM_PPC_I386_FFMPEG_ROOT
 require_file TELEGRAM_PPC_X86_64_FFMPEG_ROOT
 
 mkdir -p "$TELEGRAM_PPC_BUILD_ROOT"
-build_slice ppc ppc "$TELEGRAM_PPC_PPC_CXX" generic 10.4 "$TELEGRAM_PPC_PPC_FFMPEG_ROOT" "$TELEGRAM_PPC_PPC_TDLIB_LIBRARY" TELEGRAM_PPC_PPC
-build_slice i386 i386 "$TELEGRAM_PPC_I386_CXX" intel 10.4 "$TELEGRAM_PPC_I386_FFMPEG_ROOT" "$TELEGRAM_PPC_I386_TDLIB_LIBRARY" TELEGRAM_PPC_I386
-build_slice x86_64 x86_64 "$TELEGRAM_PPC_X86_64_CXX" intel 10.5 "$TELEGRAM_PPC_X86_64_FFMPEG_ROOT" "$TELEGRAM_PPC_X86_64_TDLIB_LIBRARY" TELEGRAM_PPC_X86_64
-assemble_universal
+if [ "$target_arch" = all ] || [ "$target_arch" = ppc ]; then
+  build_slice ppc ppc "$TELEGRAM_PPC_PPC_CXX" generic 10.4 "$TELEGRAM_PPC_PPC_FFMPEG_ROOT" "$TELEGRAM_PPC_PPC_TDLIB_LIBRARY" TELEGRAM_PPC_PPC
+fi
+if [ "$target_arch" = all ] || [ "$target_arch" = i386 ]; then
+  build_slice i386 i386 "$TELEGRAM_PPC_I386_CXX" intel 10.4 "$TELEGRAM_PPC_I386_FFMPEG_ROOT" "$TELEGRAM_PPC_I386_TDLIB_LIBRARY" TELEGRAM_PPC_I386
+fi
+if [ "$target_arch" = all ] || [ "$target_arch" = x86_64 ]; then
+  build_slice x86_64 x86_64 "$TELEGRAM_PPC_X86_64_CXX" intel 10.5 "$TELEGRAM_PPC_X86_64_FFMPEG_ROOT" "$TELEGRAM_PPC_X86_64_TDLIB_LIBRARY" TELEGRAM_PPC_X86_64
+fi
+
+if [ "$skip_assemble" -eq 0 ]; then
+  assemble_universal
+fi

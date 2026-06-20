@@ -6,111 +6,117 @@
 
 @implementation MessageCell
 
+static NSMutableDictionary *MessageCellStateTable(void) {
+  static NSMutableDictionary *states = nil;
+  if (!states) states = [[NSMutableDictionary alloc] init];
+  return states;
+}
+
+static NSValue *MessageCellStateKey(MessageCell *cell) {
+  return [NSValue valueWithPointer:cell];
+}
+
+static NSMutableDictionary *MessageCellState(MessageCell *cell) {
+  NSMutableDictionary *states = MessageCellStateTable();
+  NSValue *key = MessageCellStateKey(cell);
+  NSMutableDictionary *state = [states objectForKey:key];
+  if (!state) {
+    state = [NSMutableDictionary dictionary];
+    [state setObject:@"" forKey:@"senderName"];
+    [state setObject:@"" forKey:@"text"];
+    [state setObject:[NSNumber numberWithBool:NO] forKey:@"isOutgoing"];
+    [state setObject:@"" forKey:@"timestamp"];
+    [state setObject:@"text" forKey:@"contentType"];
+    [state setObject:[NSNumber numberWithLongLong:0] forKey:@"imageWidth"];
+    [state setObject:[NSNumber numberWithLongLong:0] forKey:@"imageHeight"];
+    [state setObject:[NSNumber numberWithInt:0] forKey:@"fileDownloadPriority"];
+    [state setObject:[NSNumber numberWithBool:NO] forKey:@"hideMediaThumbnail"];
+    [state setObject:[NSNumber numberWithDouble:300.0] forKey:@"maxWidth"];
+    [state setObject:@"" forKey:@"senderInitial"];
+    [state setObject:[NSNumber numberWithBool:NO] forKey:@"isLongMessage"];
+    [state setObject:[NSNumber numberWithBool:NO] forKey:@"isExpanded"];
+    [state setObject:[NSNumber numberWithLongLong:0] forKey:@"messageId"];
+    [state setObject:[NSNumber numberWithLongLong:0] forKey:@"webPagePhotoWidth"];
+    [state setObject:[NSNumber numberWithLongLong:0] forKey:@"webPagePhotoHeight"];
+    [state setObject:[NSNumber numberWithBool:NO] forKey:@"webPageHasPhoto"];
+    [states setObject:state forKey:key];
+  }
+  return state;
+}
+
 - (id)init {
   self = [super init];
-  if (self) {
-    senderName_ = @""; messageText_ = @""; isOutgoing_ = NO;
-    timestampStr_ = @""; contentType_ = @"text"; imagePath_ = nil;
-    imageWidth_ = 0; imageHeight_ = 0; fileDownloadPriority_ = 0; hideMediaThumbnail_ = NO;
-    fileIdToDownload_ = nil; maxWidth_ = 300;
-    senderAvatarPath_ = nil; senderInitial_ = @""; replyPreview_ = nil;
-    isLongMessage_ = NO; isExpanded_ = NO; messageId_ = 0;
-    webPageUrl_ = nil; webPageTitle_ = nil; webPageDescription_ = nil;
-    webPageSite_ = nil; webPagePhotoPath_ = nil; webPagePhotoWidth_ = 0; webPagePhotoHeight_ = 0; webPageHasPhoto_ = NO;
-    linkItems_ = nil; reactions_ = nil;
-  }
+  if (self) MessageCellState(self);
   return self;
 }
 
 - (id)copyWithZone:(NSZone *)zone {
   MessageCell *c = [super copyWithZone:zone];
-  c->senderName_ = [senderName_ copy]; c->messageText_ = [messageText_ copy];
-  c->isOutgoing_ = isOutgoing_; c->timestampStr_ = [timestampStr_ copy];
-  c->contentType_ = [contentType_ copy]; c->imagePath_ = [imagePath_ copy];
-  c->imageWidth_ = imageWidth_; c->imageHeight_ = imageHeight_;
-  c->fileDownloadPriority_ = fileDownloadPriority_; c->fileIdToDownload_ = [fileIdToDownload_ copy];
-  c->hideMediaThumbnail_ = hideMediaThumbnail_;
-  c->maxWidth_ = maxWidth_;
-  c->senderAvatarPath_ = [senderAvatarPath_ copy]; c->senderInitial_ = [senderInitial_ copy];
-  c->replyPreview_ = [replyPreview_ copy];
-  c->isLongMessage_ = isLongMessage_; c->isExpanded_ = isExpanded_; c->messageId_ = messageId_;
-  c->webPageUrl_ = [webPageUrl_ copy]; c->webPageTitle_ = [webPageTitle_ copy];
-  c->webPageDescription_ = [webPageDescription_ copy]; c->webPageSite_ = [webPageSite_ copy];
-  c->webPagePhotoPath_ = [webPagePhotoPath_ copy];
-  c->webPagePhotoWidth_ = webPagePhotoWidth_;
-  c->webPagePhotoHeight_ = webPagePhotoHeight_;
-  c->webPageHasPhoto_ = webPageHasPhoto_;
-  c->linkItems_ = [linkItems_ retain];
-  c->reactions_ = [reactions_ retain];
+  NSMutableDictionary *state = MessageCellState(self);
+  NSMutableDictionary *copyState = [NSMutableDictionary dictionaryWithDictionary:state];
+  [MessageCellStateTable() setObject:copyState forKey:MessageCellStateKey(c)];
   return c;
 }
 
 - (void)dealloc {
-  [senderName_ release]; [messageText_ release]; [timestampStr_ release];
-  [contentType_ release]; [imagePath_ release]; [fileIdToDownload_ release];
-  [senderAvatarPath_ release]; [senderInitial_ release]; [replyPreview_ release];
-  [webPageUrl_ release]; [webPageTitle_ release]; [webPageDescription_ release];
-  [webPageSite_ release]; [webPagePhotoPath_ release]; [linkItems_ release]; [reactions_ release];
+  [MessageCellStateTable() removeObjectForKey:MessageCellStateKey(self)];
   [super dealloc];
 }
 
 - (void)configureWithMessageDict:(NSDictionary *)dict {
-  if (senderName_) [senderName_ release];
-  senderName_ = [StringOrEmpty([dict objectForKey:@"senderName"]) copy];
-  if (messageText_) [messageText_ release];
-  messageText_ = [StringOrEmpty([dict objectForKey:@"text"]) copy];
-  isOutgoing_ = [[dict objectForKey:@"isOutgoing"] boolValue];
-  if (timestampStr_) [timestampStr_ release];
-  timestampStr_ = [StringOrEmpty([dict objectForKey:@"timestamp"]) copy];
-  if (contentType_) [contentType_ release];
-  contentType_ = [StringOrEmpty([dict objectForKey:@"contentType"]) copy];
-  if (imagePath_) { [imagePath_ release]; imagePath_ = nil; }
+  NSMutableDictionary *state = MessageCellState(self);
+  [state setObject:StringOrEmpty([dict objectForKey:@"senderName"]) forKey:@"senderName"];
+  [state setObject:StringOrEmpty([dict objectForKey:@"text"]) forKey:@"text"];
+  [state setObject:[NSNumber numberWithBool:[[dict objectForKey:@"isOutgoing"] boolValue]] forKey:@"isOutgoing"];
+  [state setObject:StringOrEmpty([dict objectForKey:@"timestamp"]) forKey:@"timestamp"];
+  [state setObject:StringOrEmpty([dict objectForKey:@"contentType"]) forKey:@"contentType"];
   NSString *ip = [dict objectForKey:@"imagePath"];
-  if ([ip isKindOfClass:[NSString class]] && [ip length] > 0) imagePath_ = [ip copy];
-  imageWidth_ = LongLongValue([dict objectForKey:@"imageWidth"]);
-  imageHeight_ = LongLongValue([dict objectForKey:@"imageHeight"]);
-  fileDownloadPriority_ = [[dict objectForKey:@"fileDownloadPriority"] intValue];
-  hideMediaThumbnail_ = [[dict objectForKey:@"hideMediaThumbnail"] boolValue];
-  if (fileIdToDownload_) { [fileIdToDownload_ release]; fileIdToDownload_ = nil; }
+  if ([ip isKindOfClass:[NSString class]] && [ip length] > 0) [state setObject:ip forKey:@"imagePath"];
+  else [state removeObjectForKey:@"imagePath"];
+  [state setObject:[NSNumber numberWithLongLong:LongLongValue([dict objectForKey:@"imageWidth"])] forKey:@"imageWidth"];
+  [state setObject:[NSNumber numberWithLongLong:LongLongValue([dict objectForKey:@"imageHeight"])] forKey:@"imageHeight"];
+  [state setObject:[NSNumber numberWithInt:[[dict objectForKey:@"fileDownloadPriority"] intValue]] forKey:@"fileDownloadPriority"];
+  [state setObject:[NSNumber numberWithBool:[[dict objectForKey:@"hideMediaThumbnail"] boolValue]] forKey:@"hideMediaThumbnail"];
   NSNumber *fid = [dict objectForKey:@"fileIdToDownload"];
-  if ([fid isKindOfClass:[NSNumber class]]) fileIdToDownload_ = [fid copy];
-  maxWidth_ = (CGFloat)LongLongValue([dict objectForKey:@"maxWidth"]);
-  if (maxWidth_ < 100.0) maxWidth_ = 300.0;
-  if (senderAvatarPath_) { [senderAvatarPath_ release]; senderAvatarPath_ = nil; }
+  if ([fid isKindOfClass:[NSNumber class]]) [state setObject:fid forKey:@"fileIdToDownload"];
+  else [state removeObjectForKey:@"fileIdToDownload"];
+  CGFloat maxWidth = (CGFloat)LongLongValue([dict objectForKey:@"maxWidth"]);
+  if (maxWidth < 100.0) maxWidth = 300.0;
+  [state setObject:[NSNumber numberWithDouble:maxWidth] forKey:@"maxWidth"];
   NSString *ap = [dict objectForKey:@"avatarPath"];
-  if ([ap isKindOfClass:[NSString class]] && [ap length] > 0) senderAvatarPath_ = [ap copy];
-  if (senderInitial_) [senderInitial_ release];
-  senderInitial_ = [StringOrEmpty([dict objectForKey:@"senderInitial"]) copy];
-  if (replyPreview_) [replyPreview_ release];
-  replyPreview_ = [StringOrEmpty([dict objectForKey:@"replyPreview"]) copy];
-  if (![replyPreview_ length]) { [replyPreview_ release]; replyPreview_ = nil; }
-  isLongMessage_ = [[dict objectForKey:@"isLongMessage"] boolValue];
-  isExpanded_ = [[dict objectForKey:@"isExpanded"] boolValue];
-  messageId_ = LongLongValue([dict objectForKey:@"messageId"]);
-  if (webPageUrl_) { [webPageUrl_ release]; webPageUrl_ = nil; }
+  if ([ap isKindOfClass:[NSString class]] && [ap length] > 0) [state setObject:ap forKey:@"avatarPath"];
+  else [state removeObjectForKey:@"avatarPath"];
+  [state setObject:StringOrEmpty([dict objectForKey:@"senderInitial"]) forKey:@"senderInitial"];
+  NSString *replyPreview = StringOrEmpty([dict objectForKey:@"replyPreview"]);
+  if ([replyPreview length]) [state setObject:replyPreview forKey:@"replyPreview"];
+  else [state removeObjectForKey:@"replyPreview"];
+  [state setObject:[NSNumber numberWithBool:[[dict objectForKey:@"isLongMessage"] boolValue]] forKey:@"isLongMessage"];
+  [state setObject:[NSNumber numberWithBool:[[dict objectForKey:@"isExpanded"] boolValue]] forKey:@"isExpanded"];
+  [state setObject:[NSNumber numberWithLongLong:LongLongValue([dict objectForKey:@"messageId"])] forKey:@"messageId"];
   NSString *wpu = [dict objectForKey:@"webPageUrl"];
-  if ([wpu isKindOfClass:[NSString class]] && [wpu length] > 0) webPageUrl_ = [wpu copy];
-  if (webPageTitle_) { [webPageTitle_ release]; webPageTitle_ = nil; }
+  if ([wpu isKindOfClass:[NSString class]] && [wpu length] > 0) [state setObject:wpu forKey:@"webPageUrl"];
+  else [state removeObjectForKey:@"webPageUrl"];
   NSString *wpt = [dict objectForKey:@"webPageTitle"];
-  if ([wpt isKindOfClass:[NSString class]]) webPageTitle_ = [wpt copy];
-  if (webPageDescription_) { [webPageDescription_ release]; webPageDescription_ = nil; }
+  if ([wpt isKindOfClass:[NSString class]]) [state setObject:wpt forKey:@"webPageTitle"];
+  else [state removeObjectForKey:@"webPageTitle"];
   NSString *wpd = [dict objectForKey:@"webPageDescription"];
-  if ([wpd isKindOfClass:[NSString class]]) webPageDescription_ = [wpd copy];
-  if (webPageSite_) { [webPageSite_ release]; webPageSite_ = nil; }
+  if ([wpd isKindOfClass:[NSString class]]) [state setObject:wpd forKey:@"webPageDescription"];
+  else [state removeObjectForKey:@"webPageDescription"];
   NSString *wps = [dict objectForKey:@"webPageSite"];
-  if ([wps isKindOfClass:[NSString class]]) webPageSite_ = [wps copy];
-  if (webPagePhotoPath_) { [webPagePhotoPath_ release]; webPagePhotoPath_ = nil; }
+  if ([wps isKindOfClass:[NSString class]]) [state setObject:wps forKey:@"webPageSite"];
+  else [state removeObjectForKey:@"webPageSite"];
   NSString *wppp = [dict objectForKey:@"webPagePhotoPath"];
-  if ([wppp isKindOfClass:[NSString class]] && [wppp length] > 0) webPagePhotoPath_ = [wppp copy];
-  webPagePhotoWidth_ = LongLongValue([dict objectForKey:@"webPagePhotoWidth"]);
-  webPagePhotoHeight_ = LongLongValue([dict objectForKey:@"webPagePhotoHeight"]);
-  webPageHasPhoto_ = (webPagePhotoPath_ != nil || [dict objectForKey:@"webPagePhotoId"] != nil);
-  if (linkItems_) { [linkItems_ release]; linkItems_ = nil; }
+  if ([wppp isKindOfClass:[NSString class]] && [wppp length] > 0) [state setObject:wppp forKey:@"webPagePhotoPath"];
+  else [state removeObjectForKey:@"webPagePhotoPath"];
+  [state setObject:[NSNumber numberWithLongLong:LongLongValue([dict objectForKey:@"webPagePhotoWidth"])] forKey:@"webPagePhotoWidth"];
+  [state setObject:[NSNumber numberWithLongLong:LongLongValue([dict objectForKey:@"webPagePhotoHeight"])] forKey:@"webPagePhotoHeight"];
+  [state setObject:[NSNumber numberWithBool:([state objectForKey:@"webPagePhotoPath"] != nil || [dict objectForKey:@"webPagePhotoId"] != nil)] forKey:@"webPageHasPhoto"];
   NSArray *links = [dict objectForKey:@"linkItems"];
-  if ([links isKindOfClass:[NSArray class]] && [links count] > 0) linkItems_ = [links retain];
-  if (reactions_) { [reactions_ release]; reactions_ = nil; }
+  if ([links isKindOfClass:[NSArray class]] && [links count] > 0) [state setObject:links forKey:@"linkItems"];
+  else [state removeObjectForKey:@"linkItems"];
   NSArray *rx = [dict objectForKey:@"reactions"];
-  if ([rx isKindOfClass:[NSArray class]] && [rx count] > 0) reactions_ = [rx retain];
+  if ([rx isKindOfClass:[NSArray class]] && [rx count] > 0) [state setObject:rx forKey:@"reactions"];
+  else [state removeObjectForKey:@"reactions"];
 }
 
 + (CGFloat)cellHeightForMessageDict:(NSDictionary *)dict maxWidth:(CGFloat)maxWidth {
@@ -121,7 +127,7 @@
 
 static void DrawBubble(NSRect r, BOOL out) {
   CGFloat rad = 8.0;
-  NSBezierPath *p = [NSBezierPath bezierPathWithRoundedRect:r xRadius:rad yRadius:rad];
+  NSBezierPath *p = RoundedBezierPath(r, rad);
   if (out) [[NSColor colorWithCalibratedRed:0.58 green:0.72 blue:0.86 alpha:1.0] setFill];
   else [[NSColor colorWithCalibratedWhite:0.94 alpha:1.0] setFill];
   [p fill];
@@ -259,6 +265,32 @@ BOOL MessageWebPreviewRectForDict(NSDictionary *dict, NSRect cellFrame, CGFloat 
 
 - (void)drawInteriorWithFrame:(NSRect)cellFrame inView:(NSView *)controlView {
   (void)controlView;
+  NSDictionary *state = MessageCellState(self);
+  NSString *senderName_ = StringOrEmpty([state objectForKey:@"senderName"]);
+  NSString *messageText_ = StringOrEmpty([state objectForKey:@"text"]);
+  BOOL isOutgoing_ = [[state objectForKey:@"isOutgoing"] boolValue];
+  NSString *timestampStr_ = StringOrEmpty([state objectForKey:@"timestamp"]);
+  NSString *contentType_ = StringOrEmpty([state objectForKey:@"contentType"]);
+  NSString *imagePath_ = StringOrEmpty([state objectForKey:@"imagePath"]);
+  long long imageWidth_ = LongLongValue([state objectForKey:@"imageWidth"]);
+  long long imageHeight_ = LongLongValue([state objectForKey:@"imageHeight"]);
+  BOOL hideMediaThumbnail_ = [[state objectForKey:@"hideMediaThumbnail"] boolValue];
+  CGFloat maxWidth_ = [[state objectForKey:@"maxWidth"] doubleValue];
+  NSString *senderAvatarPath_ = StringOrEmpty([state objectForKey:@"avatarPath"]);
+  NSString *senderInitial_ = StringOrEmpty([state objectForKey:@"senderInitial"]);
+  NSString *replyPreview_ = [state objectForKey:@"replyPreview"];
+  BOOL isLongMessage_ = [[state objectForKey:@"isLongMessage"] boolValue];
+  BOOL isExpanded_ = [[state objectForKey:@"isExpanded"] boolValue];
+  NSString *webPageUrl_ = [state objectForKey:@"webPageUrl"];
+  NSString *webPageTitle_ = StringOrEmpty([state objectForKey:@"webPageTitle"]);
+  NSString *webPageDescription_ = StringOrEmpty([state objectForKey:@"webPageDescription"]);
+  NSString *webPageSite_ = StringOrEmpty([state objectForKey:@"webPageSite"]);
+  NSString *webPagePhotoPath_ = StringOrEmpty([state objectForKey:@"webPagePhotoPath"]);
+  long long webPagePhotoWidth_ = LongLongValue([state objectForKey:@"webPagePhotoWidth"]);
+  long long webPagePhotoHeight_ = LongLongValue([state objectForKey:@"webPagePhotoHeight"]);
+  BOOL webPageHasPhoto_ = [[state objectForKey:@"webPageHasPhoto"] boolValue];
+  NSArray *linkItems_ = [state objectForKey:@"linkItems"];
+  NSArray *reactions_ = [state objectForKey:@"reactions"];
   CGFloat mbw = MessageBubbleMaxWidthForColumnWidth(maxWidth_, isOutgoing_);
   CGFloat cw = 0, ch = 0;
   BOOL hasImg = NO;
@@ -377,7 +409,7 @@ BOOL MessageWebPreviewRectForDict(NSDictionary *dict, NSRect cellFrame, CGFloat 
     CGFloat quoteBarW = 3.0;
     NSColor *qColor = [NSColor colorWithCalibratedRed:0.35 green:0.70 blue:0.92 alpha:1.0];
     [qColor setFill];
-    [[NSBezierPath bezierPathWithRoundedRect:NSMakeRect(quoteBarX, cy - 1.0, quoteBarW, quoteH - 2.0) xRadius:1.5 yRadius:1.5] fill];
+    [RoundedBezierPath(NSMakeRect(quoteBarX, cy - 1.0, quoteBarW, quoteH - 2.0), 1.5) fill];
     NSColor *qtc = isOutgoing_ ? [NSColor colorWithCalibratedWhite:1.0 alpha:0.65] : [NSColor colorWithCalibratedWhite:0.5 alpha:1.0];
     NSMutableParagraphStyle *qstyle = [[[NSMutableParagraphStyle alloc] init] autorelease];
     [qstyle setLineBreakMode:NSLineBreakByWordWrapping];
@@ -415,7 +447,7 @@ BOOL MessageWebPreviewRectForDict(NSDictionary *dict, NSRect cellFrame, CGFloat 
       }
     } else if (!hideMediaThumbnail_) {
       [[NSColor colorWithCalibratedWhite:0.7 alpha:1.0] setFill];
-      [[NSBezierPath bezierPathWithRoundedRect:ir xRadius:4.0 yRadius:4.0] fill];
+      [RoundedBezierPath(ir, 4.0) fill];
       StrokeRoundedBorder(ir, 4.0, isOutgoing_ ? [NSColor colorWithCalibratedWhite:1.0 alpha:0.35] : [NSColor colorWithCalibratedWhite:0.70 alpha:1.0]);
       NSString *lb = [contentType_ isEqualToString:@"messageVideo"] ? @"Video" : @"Photo";
       NSColor *pc = isOutgoing_ ? [NSColor colorWithCalibratedWhite:1.0 alpha:0.7] : [NSColor grayColor];
@@ -480,7 +512,7 @@ BOOL MessageWebPreviewRectForDict(NSDictionary *dict, NSRect cellFrame, CGFloat 
     CGFloat cardW = cw - 16.0;
     CGFloat cardH = WebPreviewCardHeight(cardW, webPageHasPhoto_, webPagePhotoWidth_, webPagePhotoHeight_, webPageSite_, webPageTitle_, webPageDescription_);
     NSRect cardRect = NSMakeRect(cx, cy, cardW, cardH);
-    NSBezierPath *cardPath = [NSBezierPath bezierPathWithRoundedRect:cardRect xRadius:6.0 yRadius:6.0];
+    NSBezierPath *cardPath = RoundedBezierPath(cardRect, 6.0);
     if (isOutgoing_) [[NSColor colorWithCalibratedWhite:1.0 alpha:0.34] setFill];
     else [[NSColor colorWithCalibratedWhite:0.985 alpha:1.0] setFill];
     [cardPath fill];
@@ -512,7 +544,7 @@ BOOL MessageWebPreviewRectForDict(NSDictionary *dict, NSRect cellFrame, CGFloat 
         DrawRoundedImage(previewImg, pr, 5.0, isOutgoing_ ? [NSColor colorWithCalibratedWhite:1.0 alpha:0.35] : [NSColor colorWithCalibratedWhite:0.70 alpha:1.0]);
       } else {
         [[NSColor colorWithCalibratedWhite:0.80 alpha:1.0] setFill];
-        [[NSBezierPath bezierPathWithRoundedRect:pr xRadius:5.0 yRadius:5.0] fill];
+        [RoundedBezierPath(pr, 5.0) fill];
         StrokeRoundedBorder(pr, 5.0, isOutgoing_ ? [NSColor colorWithCalibratedWhite:1.0 alpha:0.35] : [NSColor colorWithCalibratedWhite:0.70 alpha:1.0]);
       }
       innerY += previewH + 7.0;
@@ -573,7 +605,7 @@ BOOL MessageWebPreviewRectForDict(NSDictionary *dict, NSRect cellFrame, CGFloat 
         rxY += 22.0;
       }
       NSRect rxRect = NSMakeRect(rxX, rxY, bw, bh2);
-      NSBezierPath *rxPath = [NSBezierPath bezierPathWithRoundedRect:rxRect xRadius:10.0 yRadius:10.0];
+      NSBezierPath *rxPath = RoundedBezierPath(rxRect, 10.0);
       if (chosen) {
         [[NSColor colorWithCalibratedRed:0.35 green:0.70 blue:0.92 alpha:0.3] setFill];
       } else {

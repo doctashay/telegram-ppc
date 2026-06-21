@@ -21,7 +21,7 @@
 ## Project Overview
 Sailplane is an unofficial Telegram client for macOS, written in Objective-C++ with TDLib handling the Telegram protocol.
 
-The project focuses on keeping Telegram usable on older Macs without splitting the codebase away from modern macOS support. The same client is intended to build for PowerPC, Intel, and Apple Silicon, with compatibility work kept close to the platform code. A full compatibility chart can be found [here](#compatibility).
+The project focuses on keeping Telegram usable on older Macs without splitting the codebase away from modern macOS support. The same client is intended to build for PowerPC, Intel, and Apple Silicon, with compatibility work kept close to the platform code. A full compatibility chart can be found [here](#supported-targets).
 
 
 

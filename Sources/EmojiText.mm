@@ -219,8 +219,14 @@ static NSString *TwemojiBasePath() {
       base = [bundleTwemoji copy];
     } else {
       // Fall back to app support
-      NSString *support = [@"~/Library/Application Support/PowerPCTelegram/twemoji" stringByExpandingTildeInPath];
-      base = [support copy];
+      NSString *support = [@"~/Library/Application Support/Sailplane/twemoji" stringByExpandingTildeInPath];
+      NSString *oldSupport = [@"~/Library/Application Support/PowerPCTelegram/twemoji" stringByExpandingTildeInPath];
+      if (![[NSFileManager defaultManager] fileExistsAtPath:support] &&
+          [[NSFileManager defaultManager] fileExistsAtPath:oldSupport]) {
+        base = [oldSupport copy];
+      } else {
+        base = [support copy];
+      }
     }
   }
   return base;

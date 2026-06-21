@@ -5,7 +5,7 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/build-ffmpeg-static.sh [--config PATH] [--arch ppc|i386|x86_64|all] [--source PATH] [--clean]
 
-Build lean static FFmpeg libraries for the TelegramPPC universal build.
+Build lean static FFmpeg libraries for the Sailplane universal build.
 The output prefixes are the TELEGRAM_PPC_<ARCH>_STATIC_FFMPEG_ROOT values from local-build-config.sh.
 USAGE
 }

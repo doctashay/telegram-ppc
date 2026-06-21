@@ -5,15 +5,15 @@
   <key>CFBundleDevelopmentRegion</key>
   <string>English</string>
   <key>CFBundleExecutable</key>
-  <string>TelegramPPC</string>
+  <string>Sailplane</string>
   <key>CFBundleIconFile</key>
-  <string>TelegramPPC.icns</string>
+  <string>Sailplane.icns</string>
   <key>CFBundleIdentifier</key>
-  <string>com.shay.TelegramPPC</string>
+  <string>com.shay.Sailplane</string>
   <key>CFBundleInfoDictionaryVersion</key>
   <string>6.0</string>
   <key>CFBundleName</key>
-  <string>TelegramPPC</string>
+  <string>Sailplane</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleSignature</key>

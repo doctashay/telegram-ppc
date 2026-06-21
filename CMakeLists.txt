@@ -17,7 +17,7 @@ set(TELEGRAM_PPC_INSTALL_NAME_TOOL "" CACHE FILEPATH "Optional install_name_tool
 set(TELEGRAM_PPC_VERSION "0.2.1" CACHE STRING "CFBundleShortVersionString value")
 set(TELEGRAM_PPC_BUILD_NUMBER "0" CACHE STRING "CFBundleVersion value")
 
-project(TelegramPPC LANGUAGES CXX OBJCXX)
+project(Sailplane LANGUAGES CXX OBJCXX)
 
 set(TELEGRAM_PPC_SEARCH_ROOTS ${TELEGRAM_PPC_DEPENDENCY_ROOTS})
 if(MACPORTS_PREFIX)
@@ -69,13 +69,13 @@ if(TELEGRAM_PPC_FFMPEG_ROOT)
   else()
     message(FATAL_ERROR "Unknown TELEGRAM_PPC_FFMPEG_LINKAGE: ${TELEGRAM_PPC_FFMPEG_LINKAGE}")
   endif()
-  add_library(TelegramPPCFFmpeg INTERFACE IMPORTED)
-  target_include_directories(TelegramPPCFFmpeg INTERFACE "${TELEGRAM_PPC_FFMPEG_INCLUDE_DIR}")
-  target_link_libraries(TelegramPPCFFmpeg INTERFACE
+  add_library(SailplaneFFmpeg INTERFACE IMPORTED)
+  target_include_directories(SailplaneFFmpeg INTERFACE "${TELEGRAM_PPC_FFMPEG_INCLUDE_DIR}")
+  target_link_libraries(SailplaneFFmpeg INTERFACE
     ${TELEGRAM_PPC_FFMPEG_LIBRARY_NAMES}
     ${TELEGRAM_PPC_FFMPEG_EXTRA_LIBS}
   )
-  set(TELEGRAM_PPC_FFMPEG_TARGET TelegramPPCFFmpeg)
+  set(TELEGRAM_PPC_FFMPEG_TARGET SailplaneFFmpeg)
 else()
   find_package(PkgConfig REQUIRED)
   pkg_check_modules(FFMPEG REQUIRED IMPORTED_TARGET
@@ -163,14 +163,14 @@ set(TELEGRAM_PPC_HEADERS
 )
 
 set(TELEGRAM_PPC_RESOURCES
-  Resources/TelegramPPC.icns
-  Resources/TelegramPPC.png
-  Resources/TelegramPPC.svg
+  Resources/Sailplane.icns
+  Resources/Sailplane.png
+  Resources/Sailplane.svg
   Resources/phone_24.png
   Resources/refresh_24.png
 )
 
-add_executable(TelegramPPC MACOSX_BUNDLE
+add_executable(Sailplane MACOSX_BUNDLE
   main.mm
   ${TELEGRAM_PPC_SOURCES}
   ${TELEGRAM_PPC_HEADERS}
@@ -185,8 +185,8 @@ set_source_files_properties(${TELEGRAM_PPC_RESOURCES}
   PROPERTIES MACOSX_PACKAGE_LOCATION Resources
 )
 
-set_target_properties(TelegramPPC PROPERTIES
-  OUTPUT_NAME TelegramPPC
+set_target_properties(Sailplane PROPERTIES
+  OUTPUT_NAME Sailplane
   MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/Info.plist"
   MACOSX_BUNDLE_SHORT_VERSION_STRING "${TELEGRAM_PPC_VERSION}"
   MACOSX_BUNDLE_BUNDLE_VERSION "${TELEGRAM_PPC_BUILD_NUMBER}"
@@ -198,12 +198,12 @@ set_target_properties(TelegramPPC PROPERTIES
   OBJCXX_EXTENSIONS YES
 )
 
-target_include_directories(TelegramPPC PRIVATE
+target_include_directories(Sailplane PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}"
   "${NLOHMANN_JSON_INCLUDE_DIR}"
 )
 
-target_compile_options(TelegramPPC PRIVATE
+target_compile_options(Sailplane PRIVATE
   -fpermissive
   -fno-strict-aliasing
   -fobjc-call-cxx-cdtors
@@ -238,10 +238,10 @@ if(TELEGRAM_PPC_CPU_TARGET STREQUAL "auto")
   endif()
 endif()
 
-message(STATUS "TelegramPPC CPU target: ${TELEGRAM_PPC_RESOLVED_CPU_TARGET}")
+message(STATUS "Sailplane CPU target: ${TELEGRAM_PPC_RESOLVED_CPU_TARGET}")
 
 if(TELEGRAM_PPC_RESOLVED_CPU_TARGET STREQUAL "generic")
-  target_compile_options(TelegramPPC PRIVATE
+  target_compile_options(Sailplane PRIVATE
     -mno-powerpc64
     -force_cpusubtype_ALL
     -mcpu=powerpc
@@ -249,14 +249,14 @@ if(TELEGRAM_PPC_RESOLVED_CPU_TARGET STREQUAL "generic")
     -mno-altivec
     -mabi=no-altivec
   )
-  target_link_options(TelegramPPC PRIVATE
+  target_link_options(Sailplane PRIVATE
     -force_cpusubtype_ALL
     -Wl,-force_cpusubtype_ALL
   )
 elseif(TELEGRAM_PPC_RESOLVED_CPU_TARGET STREQUAL "g4")
-  target_compile_options(TelegramPPC PRIVATE -mno-powerpc64 -mcpu=7400 -mtune=7400)
+  target_compile_options(Sailplane PRIVATE -mno-powerpc64 -mcpu=7400 -mtune=7400)
 elseif(TELEGRAM_PPC_RESOLVED_CPU_TARGET STREQUAL "g5")
-  target_compile_options(TelegramPPC PRIVATE -mno-powerpc64 -mcpu=970 -mtune=970)
+  target_compile_options(Sailplane PRIVATE -mno-powerpc64 -mcpu=970 -mtune=970)
 elseif(TELEGRAM_PPC_RESOLVED_CPU_TARGET STREQUAL "intel")
   # Intel slices do not use PowerPC-specific compiler flags.
 elseif(TELEGRAM_PPC_RESOLVED_CPU_TARGET STREQUAL "native")
@@ -265,20 +265,20 @@ else()
   message(FATAL_ERROR "Unknown TELEGRAM_PPC_CPU_TARGET: ${TELEGRAM_PPC_CPU_TARGET}")
 endif()
 
-target_compile_definitions(TelegramPPC PRIVATE
+target_compile_definitions(Sailplane PRIVATE
   TELEGRAM_PPC_SYSTEM_VERSION="${TELEGRAM_PPC_MIN_SYSTEM_VERSION}"
 )
 
-target_link_libraries(TelegramPPC PRIVATE
+target_link_libraries(Sailplane PRIVATE
   "${COCOA_FRAMEWORK}"
   "${OPENGL_FRAMEWORK}"
   dl
   "${TELEGRAM_PPC_FFMPEG_TARGET}"
 )
 
-add_custom_command(TARGET TelegramPPC POST_BUILD
-  COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:TelegramPPC>/Frameworks"
-  COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${TDJSON_LIBRARY}" "$<TARGET_BUNDLE_CONTENT_DIR:TelegramPPC>/Frameworks/libtdjson.dylib"
+add_custom_command(TARGET Sailplane POST_BUILD
+  COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:Sailplane>/Frameworks"
+  COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${TDJSON_LIBRARY}" "$<TARGET_BUNDLE_CONTENT_DIR:Sailplane>/Frameworks/libtdjson.dylib"
   VERBATIM
 )
 
@@ -292,8 +292,8 @@ foreach(TELEGRAM_PPC_BUNDLE_LIB IN LISTS TELEGRAM_PPC_BUNDLE_LIBS)
   get_filename_component(TELEGRAM_PPC_BUNDLE_LIB_NAME "${TELEGRAM_PPC_BUNDLE_LIB}" NAME)
   list(APPEND TELEGRAM_PPC_BUNDLED_LIB_NAMES "${TELEGRAM_PPC_BUNDLE_LIB_NAME}")
   list(APPEND TELEGRAM_PPC_BUNDLED_LIB_ORIGINAL_PATHS "${TELEGRAM_PPC_BUNDLE_LIB}")
-  add_custom_command(TARGET TelegramPPC POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${TELEGRAM_PPC_BUNDLE_LIB}" "$<TARGET_BUNDLE_CONTENT_DIR:TelegramPPC>/Frameworks/${TELEGRAM_PPC_BUNDLE_LIB_NAME}"
+  add_custom_command(TARGET Sailplane POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${TELEGRAM_PPC_BUNDLE_LIB}" "$<TARGET_BUNDLE_CONTENT_DIR:Sailplane>/Frameworks/${TELEGRAM_PPC_BUNDLE_LIB_NAME}"
     VERBATIM
   )
 endforeach()
@@ -301,8 +301,8 @@ endforeach()
 if(PPCVOIP_LIBRARY)
   list(APPEND TELEGRAM_PPC_BUNDLED_LIB_NAMES libppcvoip.dylib)
   list(APPEND TELEGRAM_PPC_BUNDLED_LIB_ORIGINAL_PATHS "${PPCVOIP_LIBRARY}")
-  add_custom_command(TARGET TelegramPPC POST_BUILD
-    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${PPCVOIP_LIBRARY}" "$<TARGET_BUNDLE_CONTENT_DIR:TelegramPPC>/Frameworks/libppcvoip.dylib"
+  add_custom_command(TARGET Sailplane POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${PPCVOIP_LIBRARY}" "$<TARGET_BUNDLE_CONTENT_DIR:Sailplane>/Frameworks/libppcvoip.dylib"
     VERBATIM
   )
 endif()
@@ -320,8 +320,8 @@ if(TELEGRAM_PPC_INSTALL_NAME_TOOL)
 
   foreach(TELEGRAM_PPC_BUNDLED_LIB_INDEX RANGE 0 ${TELEGRAM_PPC_BUNDLED_LIB_LAST})
     list(GET TELEGRAM_PPC_BUNDLED_LIB_NAMES ${TELEGRAM_PPC_BUNDLED_LIB_INDEX} TELEGRAM_PPC_BUNDLED_LIB_NAME)
-    add_custom_command(TARGET TelegramPPC POST_BUILD
-      COMMAND /bin/sh -c "\"${TELEGRAM_PPC_INSTALL_NAME_TOOL}\" -id \"@executable_path/../Frameworks/${TELEGRAM_PPC_BUNDLED_LIB_NAME}\" \"$<TARGET_BUNDLE_CONTENT_DIR:TelegramPPC>/Frameworks/${TELEGRAM_PPC_BUNDLED_LIB_NAME}\" 2>/dev/null || true"
+    add_custom_command(TARGET Sailplane POST_BUILD
+      COMMAND /bin/sh -c "\"${TELEGRAM_PPC_INSTALL_NAME_TOOL}\" -id \"@executable_path/../Frameworks/${TELEGRAM_PPC_BUNDLED_LIB_NAME}\" \"$<TARGET_BUNDLE_CONTENT_DIR:Sailplane>/Frameworks/${TELEGRAM_PPC_BUNDLED_LIB_NAME}\" 2>/dev/null || true"
       VERBATIM
     )
   endforeach()
@@ -333,13 +333,13 @@ if(TELEGRAM_PPC_INSTALL_NAME_TOOL)
     set(TELEGRAM_PPC_BUNDLED_LIB_LOAD_PATHS "${TELEGRAM_PPC_BUNDLED_LIB_ORIGINAL_PATH}" "${TELEGRAM_PPC_BUNDLED_LIB_REAL_PATH}")
 
     foreach(TELEGRAM_PPC_BUNDLED_LIB_LOAD_PATH IN LISTS TELEGRAM_PPC_BUNDLED_LIB_LOAD_PATHS)
-      add_custom_command(TARGET TelegramPPC POST_BUILD
-        COMMAND /bin/sh -c "\"${TELEGRAM_PPC_INSTALL_NAME_TOOL}\" -change \"${TELEGRAM_PPC_BUNDLED_LIB_LOAD_PATH}\" \"@executable_path/../Frameworks/${TELEGRAM_PPC_BUNDLED_LIB_NAME}\" \"$<TARGET_FILE:TelegramPPC>\" 2>/dev/null || true"
+      add_custom_command(TARGET Sailplane POST_BUILD
+        COMMAND /bin/sh -c "\"${TELEGRAM_PPC_INSTALL_NAME_TOOL}\" -change \"${TELEGRAM_PPC_BUNDLED_LIB_LOAD_PATH}\" \"@executable_path/../Frameworks/${TELEGRAM_PPC_BUNDLED_LIB_NAME}\" \"$<TARGET_FILE:Sailplane>\" 2>/dev/null || true"
         VERBATIM
       )
       foreach(TELEGRAM_PPC_BUNDLED_PATCH_NAME IN LISTS TELEGRAM_PPC_BUNDLED_LIB_NAMES)
-        add_custom_command(TARGET TelegramPPC POST_BUILD
-          COMMAND /bin/sh -c "\"${TELEGRAM_PPC_INSTALL_NAME_TOOL}\" -change \"${TELEGRAM_PPC_BUNDLED_LIB_LOAD_PATH}\" \"@executable_path/../Frameworks/${TELEGRAM_PPC_BUNDLED_LIB_NAME}\" \"$<TARGET_BUNDLE_CONTENT_DIR:TelegramPPC>/Frameworks/${TELEGRAM_PPC_BUNDLED_PATCH_NAME}\" 2>/dev/null || true"
+        add_custom_command(TARGET Sailplane POST_BUILD
+          COMMAND /bin/sh -c "\"${TELEGRAM_PPC_INSTALL_NAME_TOOL}\" -change \"${TELEGRAM_PPC_BUNDLED_LIB_LOAD_PATH}\" \"@executable_path/../Frameworks/${TELEGRAM_PPC_BUNDLED_LIB_NAME}\" \"$<TARGET_BUNDLE_CONTENT_DIR:Sailplane>/Frameworks/${TELEGRAM_PPC_BUNDLED_PATCH_NAME}\" 2>/dev/null || true"
           VERBATIM
         )
       endforeach()

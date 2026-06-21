@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-TelegramPPC depends on third-party libraries that keep their own licenses.
+Sailplane depends on third-party libraries that keep their own licenses.
 
 ## TDLib
 

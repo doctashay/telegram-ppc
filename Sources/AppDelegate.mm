@@ -23,16 +23,16 @@
   NSMenuItem *ami = nil;
   if ([mb numberOfItems] > 0) {
     ami = [mb itemAtIndex:0];
-    [ami setTitle:@"TelegramPPC"];
+    [ami setTitle:@"Sailplane"];
   } else {
-    ami = [[[NSMenuItem alloc] initWithTitle:@"TelegramPPC" action:NULL keyEquivalent:@""] autorelease];
+    ami = [[[NSMenuItem alloc] initWithTitle:@"Sailplane" action:NULL keyEquivalent:@""] autorelease];
     [mb addItem:ami];
   }
-  NSMenu *am = [[[NSMenu alloc] initWithTitle:@"TelegramPPC"] autorelease];
+  NSMenu *am = [[[NSMenu alloc] initWithTitle:@"Sailplane"] autorelease];
   [ami setSubmenu:am];
   SEL setAppleMenuSel = NSSelectorFromString(@"setAppleMenu:");
   if ([NSApp respondsToSelector:setAppleMenuSel]) [NSApp performSelector:setAppleMenuSel withObject:am];
-  [am addItemWithTitle:@"About TelegramPPC" action:@selector(orderFrontStandardAboutPanel:) keyEquivalent:@""];
+  [am addItemWithTitle:@"About Sailplane" action:@selector(orderFrontStandardAboutPanel:) keyEquivalent:@""];
   [am addItem:[NSMenuItem separatorItem]];
   [am addItemWithTitle:@"Preferences..." action:nil keyEquivalent:@","];
   [am addItem:[NSMenuItem separatorItem]];
@@ -42,12 +42,12 @@
   [am addItem:services];
   [NSApp setServicesMenu:servicesMenu];
   [am addItem:[NSMenuItem separatorItem]];
-  [am addItemWithTitle:@"Hide TelegramPPC" action:@selector(hide:) keyEquivalent:@"h"];
+  [am addItemWithTitle:@"Hide Sailplane" action:@selector(hide:) keyEquivalent:@"h"];
   NSMenuItem *hideOthers = [am addItemWithTitle:@"Hide Others" action:@selector(hideOtherApplications:) keyEquivalent:@"h"];
   [hideOthers setKeyEquivalentModifierMask:NSCommandKeyMask | NSAlternateKeyMask];
   [am addItemWithTitle:@"Show All" action:@selector(unhideAllApplications:) keyEquivalent:@""];
   [am addItem:[NSMenuItem separatorItem]];
-  [am addItemWithTitle:@"Quit TelegramPPC" action:@selector(terminate:) keyEquivalent:@"q"];
+  [am addItemWithTitle:@"Quit Sailplane" action:@selector(terminate:) keyEquivalent:@"q"];
 
   NSMenuItem *fmi = [[[NSMenuItem alloc] initWithTitle:@"File" action:NULL keyEquivalent:@""] autorelease];
   [mb addItem:fmi];
@@ -103,7 +103,7 @@
   [mb addItem:hmi];
   NSMenu *hm = [[[NSMenu alloc] initWithTitle:@"Help"] autorelease];
   [hmi setSubmenu:hm];
-  [hm addItemWithTitle:@"TelegramPPC Help" action:nil keyEquivalent:@""];
+  [hm addItemWithTitle:@"Sailplane Help" action:nil keyEquivalent:@""];
 }
 
 - (id)init {
@@ -302,10 +302,10 @@
 
   NSRect frame = NSMakeRect(100, 100, 1100, 720);
   mainWindow_ = [[NSWindow alloc] initWithContentRect:frame styleMask:(NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask) backing:NSBackingStoreBuffered defer:NO];
-  [mainWindow_ setTitle:@"TelegramPPC"];
+  [mainWindow_ setTitle:@"Sailplane"];
   [mainWindow_ setDelegate:self];
 
-  NSToolbar *toolbar = [[[NSToolbar alloc] initWithIdentifier:@"TelegramPPCToolbarPolished2"] autorelease];
+  NSToolbar *toolbar = [[[NSToolbar alloc] initWithIdentifier:@"SailplaneToolbarPolished2"] autorelease];
   [toolbar setDelegate:self];
   [toolbar setAllowsUserCustomization:YES];
   [toolbar setAutosavesConfiguration:NO];
@@ -586,7 +586,7 @@
 
 - (void)applicationDidFinishLaunching:(NSNotification *)note {
   (void)note;
-  NSString *iconPath = [[NSBundle mainBundle] pathForResource:@"TelegramPPC" ofType:@"png"];
+  NSString *iconPath = [[NSBundle mainBundle] pathForResource:@"Sailplane" ofType:@"png"];
   if (iconPath) {
     NSImage *appIcon = [[[NSImage alloc] initWithContentsOfFile:iconPath] autorelease];
     if (appIcon) [NSApp setApplicationIconImage:appIcon];

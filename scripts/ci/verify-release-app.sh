@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-app="${1:-dist/TelegramPPC.app}"
+app="${1:-dist/Sailplane.app}"
 
 if [ ! -d "$app" ]; then
   echo "app bundle does not exist: $app" >&2
   exit 1
 fi
 
-binary="$app/Contents/MacOS/TelegramPPC"
+binary="$app/Contents/MacOS/Sailplane"
 frameworks="$app/Contents/Frameworks"
 plist="$app/Contents/Info.plist"
 

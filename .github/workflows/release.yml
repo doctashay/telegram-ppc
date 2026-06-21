@@ -113,7 +113,7 @@ jobs:
         run: rm -f TelegramCredentials.h local-build-config.ci.sh
 
       - name: Pack thin app
-        run: tar -czf "thin-${{ matrix.arch }}.tgz" -C "build/build-${{ matrix.arch }}" TelegramPPC.app
+        run: tar -czf "thin-${{ matrix.arch }}.tgz" -C "build/build-${{ matrix.arch }}" Sailplane.app
 
       - name: Upload thin app
         uses: actions/upload-artifact@v7
@@ -191,9 +191,9 @@ jobs:
               export TELEGRAM_PPC_DEPENDENCY_ROOTS=/opt/ppc-darwin/macports-ppc/opt/local
               scripts/ci/write-build-config.sh local-build-config.ci.sh
               scripts/build-universal.sh --config local-build-config.ci.sh --skip-build
-              scripts/ci/verify-release-app.sh dist/TelegramPPC.app
-              "$TELEGRAM_PPC_LIPO" -info dist/TelegramPPC.app/Contents/MacOS/TelegramPPC
-              "$TELEGRAM_PPC_LIPO" -info dist/TelegramPPC.app/Contents/Frameworks/libtdjson.dylib
+              scripts/ci/verify-release-app.sh dist/Sailplane.app
+              "$TELEGRAM_PPC_LIPO" -info dist/Sailplane.app/Contents/MacOS/Sailplane
+              "$TELEGRAM_PPC_LIPO" -info dist/Sailplane.app/Contents/Frameworks/libtdjson.dylib
             '
           sudo chown -R "$USER:$USER" build dist local-build-config.ci.sh
 
@@ -204,7 +204,7 @@ jobs:
           import plistlib
           from pathlib import Path
 
-          plist_path = Path("dist/TelegramPPC.app/Contents/Info.plist")
+          plist_path = Path("dist/Sailplane.app/Contents/Info.plist")
           with plist_path.open("rb") as fh:
               plist = plistlib.load(fh)
 
@@ -228,28 +228,28 @@ jobs:
       - name: Package release staging
         run: |
           mkdir -p release-staging
-          tar -czf "release-staging/TelegramPPC-${TELEGRAM_PPC_VERSION}-universal-app.tgz" -C dist TelegramPPC.app
-          dmg_name="TelegramPPC-${TELEGRAM_PPC_VERSION}-universal.dmg"
-          printf '%s\n' "$dmg_name" > release-staging/TelegramPPC-universal.artifact-name
+          tar -czf "release-staging/Sailplane-${TELEGRAM_PPC_VERSION}-universal-app.tgz" -C dist Sailplane.app
+          dmg_name="Sailplane-${TELEGRAM_PPC_VERSION}-universal.dmg"
+          printf '%s\n' "$dmg_name" > release-staging/Sailplane-universal.artifact-name
 
           for arch in ppc i386 x86_64; do
-            tar -czf "release-staging/TelegramPPC-${TELEGRAM_PPC_VERSION}-${arch}-app.tgz" -C "build/build-$arch" TelegramPPC.app
-            printf 'TelegramPPC-%s-%s.dmg\n' "$TELEGRAM_PPC_VERSION" "$arch" > "release-staging/TelegramPPC-${arch}.artifact-name"
+            tar -czf "release-staging/Sailplane-${TELEGRAM_PPC_VERSION}-${arch}-app.tgz" -C "build/build-$arch" Sailplane.app
+            printf 'Sailplane-%s-%s.dmg\n' "$TELEGRAM_PPC_VERSION" "$arch" > "release-staging/Sailplane-${arch}.artifact-name"
           done
 
       - name: Upload release staging
         uses: actions/upload-artifact@v7
         with:
-          name: TelegramPPC-release-staging
+          name: Sailplane-release-staging
           path: |
-            release-staging/TelegramPPC-*-universal-app.tgz
-            release-staging/TelegramPPC-*-ppc-app.tgz
-            release-staging/TelegramPPC-*-i386-app.tgz
-            release-staging/TelegramPPC-*-x86_64-app.tgz
-            release-staging/TelegramPPC-universal.artifact-name
-            release-staging/TelegramPPC-ppc.artifact-name
-            release-staging/TelegramPPC-i386.artifact-name
-            release-staging/TelegramPPC-x86_64.artifact-name
+            release-staging/Sailplane-*-universal-app.tgz
+            release-staging/Sailplane-*-ppc-app.tgz
+            release-staging/Sailplane-*-i386-app.tgz
+            release-staging/Sailplane-*-x86_64-app.tgz
+            release-staging/Sailplane-universal.artifact-name
+            release-staging/Sailplane-ppc.artifact-name
+            release-staging/Sailplane-i386.artifact-name
+            release-staging/Sailplane-x86_64.artifact-name
 
   package:
     name: Package DMG
@@ -260,7 +260,7 @@ jobs:
       - name: Download release staging
         uses: actions/download-artifact@v8
         with:
-          name: TelegramPPC-release-staging
+          name: Sailplane-release-staging
           path: dist
 
       - name: Create DMGs
@@ -272,16 +272,16 @@ jobs:
             local app_archive="$2"
             local dmg_name
 
-            dmg_name="$(cat "dist/TelegramPPC-${flavor}.artifact-name")"
+            dmg_name="$(cat "dist/Sailplane-${flavor}.artifact-name")"
             test -n "$app_archive"
 
             rm -rf dmg-work dmg-root dmg-mount
             mkdir -p dmg-work dmg-root
             tar -xzf "$app_archive" -C dmg-work
-            cp -a dmg-work/TelegramPPC.app dmg-root/
+            cp -a dmg-work/Sailplane.app dmg-root/
 
             hdiutil create \
-              -volname TelegramPPC \
+              -volname Sailplane \
               -srcfolder dmg-root \
               -fs HFS+ \
               -layout SPUD \
@@ -292,32 +292,32 @@ jobs:
 
             mkdir -p dmg-mount
             hdiutil attach -nobrowse -mountpoint dmg-mount "dist/$dmg_name"
-            test -d dmg-mount/TelegramPPC.app
+            test -d dmg-mount/Sailplane.app
             hdiutil detach dmg-mount
           }
 
-          create_dmg universal "$(find dist -maxdepth 1 -name 'TelegramPPC-*-universal-app.tgz' -print -quit)"
+          create_dmg universal "$(find dist -maxdepth 1 -name 'Sailplane-*-universal-app.tgz' -print -quit)"
           for arch in ppc i386 x86_64; do
-            create_dmg "$arch" "$(find dist -maxdepth 1 -name "TelegramPPC-*-${arch}-app.tgz" -print -quit)"
+            create_dmg "$arch" "$(find dist -maxdepth 1 -name "Sailplane-*-${arch}-app.tgz" -print -quit)"
           done
 
-          rm -f dist/TelegramPPC-*-app.tgz
+          rm -f dist/Sailplane-*-app.tgz
           rm -rf dmg-work dmg-root dmg-mount
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v7
         with:
-          name: TelegramPPC-universal
+          name: Sailplane-universal
           path: |
-            dist/TelegramPPC-*-universal.dmg
-            dist/TelegramPPC-*-universal.dmg.sha256
-            dist/TelegramPPC-*-ppc.dmg
-            dist/TelegramPPC-*-ppc.dmg.sha256
-            dist/TelegramPPC-*-i386.dmg
-            dist/TelegramPPC-*-i386.dmg.sha256
-            dist/TelegramPPC-*-x86_64.dmg
-            dist/TelegramPPC-*-x86_64.dmg.sha256
-            dist/TelegramPPC-*.artifact-name
+            dist/Sailplane-*-universal.dmg
+            dist/Sailplane-*-universal.dmg.sha256
+            dist/Sailplane-*-ppc.dmg
+            dist/Sailplane-*-ppc.dmg.sha256
+            dist/Sailplane-*-i386.dmg
+            dist/Sailplane-*-i386.dmg.sha256
+            dist/Sailplane-*-x86_64.dmg
+            dist/Sailplane-*-x86_64.dmg.sha256
+            dist/Sailplane-*.artifact-name
 
   publish:
     name: Publish release
@@ -332,7 +332,7 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@v8
         with:
-          name: TelegramPPC-universal
+          name: Sailplane-universal
           path: dist
 
       - name: Upload GitHub Release assets
@@ -349,17 +349,17 @@ jobs:
             echo "release_tag is required when uploading a release from a non-tag ref" >&2
             exit 1
           fi
-          asset_name="$(cat dist/TelegramPPC-universal.artifact-name)"
+          asset_name="$(cat dist/Sailplane-universal.artifact-name)"
           test -f "dist/$asset_name"
           test -f "dist/$asset_name.sha256"
           gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" --notes ""
           gh release upload "$tag" \
             "dist/$asset_name" \
             "dist/$asset_name.sha256" \
-            dist/TelegramPPC-*-ppc.dmg \
-            dist/TelegramPPC-*-ppc.dmg.sha256 \
-            dist/TelegramPPC-*-i386.dmg \
-            dist/TelegramPPC-*-i386.dmg.sha256 \
-            dist/TelegramPPC-*-x86_64.dmg \
-            dist/TelegramPPC-*-x86_64.dmg.sha256 \
+            dist/Sailplane-*-ppc.dmg \
+            dist/Sailplane-*-ppc.dmg.sha256 \
+            dist/Sailplane-*-i386.dmg \
+            dist/Sailplane-*-i386.dmg.sha256 \
+            dist/Sailplane-*-x86_64.dmg \
+            dist/Sailplane-*-x86_64.dmg.sha256 \
             --clobber

@@ -12,13 +12,26 @@ static void BridgeLog(NSString *format, ...) {
   va_end(args);
 
   NSString *line = [NSString stringWithFormat:@"%@ %@\n", [NSDate date], message];
-  NSFileHandle *handle = [NSFileHandle fileHandleForWritingAtPath:@"/tmp/TelegramPPC.log"];
+  NSFileHandle *handle = [NSFileHandle fileHandleForWritingAtPath:@"/tmp/Sailplane.log"];
   if (!handle) {
-    [[NSFileManager defaultManager] createFileAtPath:@"/tmp/TelegramPPC.log" contents:nil attributes:nil];
-    handle = [NSFileHandle fileHandleForWritingAtPath:@"/tmp/TelegramPPC.log"];
+    [[NSFileManager defaultManager] createFileAtPath:@"/tmp/Sailplane.log" contents:nil attributes:nil];
+    handle = [NSFileHandle fileHandleForWritingAtPath:@"/tmp/Sailplane.log"];
   }
   [handle seekToEndOfFile];
   [handle writeData:[line dataUsingEncoding:NSUTF8StringEncoding]];
+}
+
+static NSString *SailplaneApplicationSupportPath() {
+  NSString *root = [@"~/Library/Application Support/Sailplane" stringByExpandingTildeInPath];
+  NSString *oldRoot = [@"~/Library/Application Support/PowerPCTelegram" stringByExpandingTildeInPath];
+  NSFileManager *fm = [NSFileManager defaultManager];
+  BOOL rootIsDir = NO;
+  BOOL oldIsDir = NO;
+  if (![fm fileExistsAtPath:root isDirectory:&rootIsDir] &&
+      [fm fileExistsAtPath:oldRoot isDirectory:&oldIsDir] && oldIsDir) {
+    [fm moveItemAtPath:oldRoot toPath:root error:nil];
+  }
+  return root;
 }
 
 @implementation TelegramBridge
@@ -89,7 +102,7 @@ static void BridgeLog(NSString *format, ...) {
 }
 
 - (void)configureTDLib {
-  NSString *root = [@"~/Library/Application Support/PowerPCTelegram" stringByExpandingTildeInPath];
+  NSString *root = SailplaneApplicationSupportPath();
   NSString *files = [root stringByAppendingPathComponent:@"files"];
   EnsureDirectoryExists(root);
   EnsureDirectoryExists(files);

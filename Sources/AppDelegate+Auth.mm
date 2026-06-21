@@ -101,7 +101,7 @@
   frame.origin.y = (screenFrame.size.height - frame.size.height) / 2.0;
 
   authWindow_ = [[NSWindow alloc] initWithContentRect:frame styleMask:(NSTitledWindowMask | NSClosableWindowMask) backing:NSBackingStoreBuffered defer:NO];
-  [authWindow_ setTitle:@"Log In to TelegramPPC"];
+  [authWindow_ setTitle:@"Log In to Sailplane"];
   NSView *cv = [authWindow_ contentView];
   CGFloat w = frame.size.width;
 
@@ -208,7 +208,7 @@
       [authWindow_ makeFirstResponder:authPhoneField_];
       return;
     }
-    [[NSUserDefaults standardUserDefaults] setObject:phone forKey:@"TelegramPPCPendingPhoneNumber"];
+    [[NSUserDefaults standardUserDefaults] setObject:phone forKey:@"SailplanePendingPhoneNumber"];
     [[NSUserDefaults standardUserDefaults] synchronize];
     [self setAuthBusy:YES message:@"Sending phone number..."];
   } else if ([st isEqualToString:@"authorizationStateWaitCode"]) {
@@ -240,7 +240,10 @@
   } else if ([state isEqualToString:@"authorizationStateWaitPhoneNumber"]) {
     [self showAuthWindow];
     [self configureAuthWindowForState:state];
-    NSString *pendingPhone = [[NSUserDefaults standardUserDefaults] stringForKey:@"TelegramPPCPendingPhoneNumber"];
+    NSString *pendingPhone = [[NSUserDefaults standardUserDefaults] stringForKey:@"SailplanePendingPhoneNumber"];
+    if (![pendingPhone length]) {
+      pendingPhone = [[NSUserDefaults standardUserDefaults] stringForKey:@"TelegramPPCPendingPhoneNumber"];
+    }
     if ([pendingPhone length] && authPhoneField_ && ![[authPhoneField_ stringValue] length]) {
       [authPhoneField_ setStringValue:pendingPhone];
     }
@@ -256,6 +259,7 @@
     [authCodeField_ setStringValue:@""];
     [self setAuthWindowStatus:@"Enter your Telegram two-step verification password."];
   } else if ([state isEqualToString:@"authorizationStateReady"]) {
+    [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"SailplanePendingPhoneNumber"];
     [[NSUserDefaults standardUserDefaults] removeObjectForKey:@"TelegramPPCPendingPhoneNumber"];
     [[NSUserDefaults standardUserDefaults] synchronize];
     [self hideAuthWindow];

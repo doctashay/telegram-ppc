@@ -5,7 +5,7 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/build-universal.sh [--config PATH] [--clean] [--skip-build]
 
-Build ppc, i386, and x86_64 thin apps, then assemble dist/TelegramPPC.app.
+Build ppc, i386, and x86_64 thin apps, then assemble dist/Sailplane.app.
 Machine-specific paths come from local-build-config.sh.
 
 Options:
@@ -116,8 +116,8 @@ build_slice() {
     fi
     cmake "${cmake_args[@]}"
     cmake --build "$build_dir" -- -j"${TELEGRAM_PPC_JOBS:-2}"
-    normalize_bundle "$build_dir/TelegramPPC.app"
-    verify_relocatable_bundle "$build_dir/TelegramPPC.app"
+    normalize_bundle "$build_dir/Sailplane.app"
+    verify_relocatable_bundle "$build_dir/Sailplane.app"
   fi
 }
 
@@ -150,7 +150,7 @@ normalize_bundle() {
   done
 
   {
-    printf '%s\n' "$app/Contents/MacOS/TelegramPPC"
+    printf '%s\n' "$app/Contents/MacOS/Sailplane"
     find "$fw" -maxdepth 1 -type f -name "*.dylib"
   } | while read -r target; do
     "$TELEGRAM_PPC_OTOOL" -L "$target" | awk '/^[[:space:]]/ {print $1}' | while read -r load; do
@@ -168,7 +168,7 @@ normalize_bundle() {
 verify_bundle() {
   local app=$1
 
-  "$TELEGRAM_PPC_LIPO" "$app/Contents/MacOS/TelegramPPC" -verify_arch ppc i386 x86_64
+  "$TELEGRAM_PPC_LIPO" "$app/Contents/MacOS/Sailplane" -verify_arch ppc i386 x86_64
   verify_relocatable_bundle "$app"
 }
 
@@ -179,7 +179,7 @@ verify_relocatable_bundle() {
 
   bad_loads="$(
     {
-      printf '%s\n' "$app/Contents/MacOS/TelegramPPC"
+      printf '%s\n' "$app/Contents/MacOS/Sailplane"
       find "$app/Contents/Frameworks" -maxdepth 1 -type f -name "*.dylib"
     } | while read -r target; do
       "$TELEGRAM_PPC_OTOOL" -L "$target" 2>/dev/null | awk '/^[[:space:]]/ {print $1}' | grep -E "$forbidden_pattern" || true
@@ -195,20 +195,20 @@ verify_relocatable_bundle() {
 
 assemble_universal() {
   local dist="${TELEGRAM_PPC_DIST_DIR:-$repo_root/dist}"
-  local app="$dist/TelegramPPC.app"
-  local ppc_app="$TELEGRAM_PPC_BUILD_ROOT/build-ppc/TelegramPPC.app"
-  local i386_app="$TELEGRAM_PPC_BUILD_ROOT/build-i386/TelegramPPC.app"
-  local x64_app="$TELEGRAM_PPC_BUILD_ROOT/build-x86_64/TelegramPPC.app"
+  local app="$dist/Sailplane.app"
+  local ppc_app="$TELEGRAM_PPC_BUILD_ROOT/build-ppc/Sailplane.app"
+  local i386_app="$TELEGRAM_PPC_BUILD_ROOT/build-i386/Sailplane.app"
+  local x64_app="$TELEGRAM_PPC_BUILD_ROOT/build-x86_64/Sailplane.app"
 
   rm -rf "$app"
   mkdir -p "$dist"
   cp -a "$x64_app" "$app"
 
   "$TELEGRAM_PPC_LIPO" -create \
-    "$ppc_app/Contents/MacOS/TelegramPPC" \
-    "$i386_app/Contents/MacOS/TelegramPPC" \
-    "$x64_app/Contents/MacOS/TelegramPPC" \
-    -output "$app/Contents/MacOS/TelegramPPC"
+    "$ppc_app/Contents/MacOS/Sailplane" \
+    "$i386_app/Contents/MacOS/Sailplane" \
+    "$x64_app/Contents/MacOS/Sailplane" \
+    -output "$app/Contents/MacOS/Sailplane"
 
   {
     list_framework_names "$ppc_app/Contents/Frameworks"
@@ -226,7 +226,7 @@ assemble_universal() {
   normalize_bundle "$app"
   verify_bundle "$app"
 
-  "$TELEGRAM_PPC_LIPO" -info "$app/Contents/MacOS/TelegramPPC"
+  "$TELEGRAM_PPC_LIPO" -info "$app/Contents/MacOS/Sailplane"
   echo "built $app"
 }
 
@@ -234,15 +234,22 @@ require_file TELEGRAM_PPC_SDK_ROOT
 require_file TELEGRAM_PPC_INSTALL_NAME_TOOL
 require_file TELEGRAM_PPC_OTOOL
 require_file TELEGRAM_PPC_LIPO
-require_file TELEGRAM_PPC_PPC_CXX
-require_file TELEGRAM_PPC_I386_CXX
-require_file TELEGRAM_PPC_X86_64_CXX
-require_file TELEGRAM_PPC_PPC_TDLIB_LIBRARY
-require_file TELEGRAM_PPC_I386_TDLIB_LIBRARY
-require_file TELEGRAM_PPC_X86_64_TDLIB_LIBRARY
-require_file TELEGRAM_PPC_PPC_FFMPEG_ROOT
-require_file TELEGRAM_PPC_I386_FFMPEG_ROOT
-require_file TELEGRAM_PPC_X86_64_FFMPEG_ROOT
+
+if [ "$target_arch" = all ] || [ "$target_arch" = ppc ]; then
+  require_file TELEGRAM_PPC_PPC_CXX
+  require_file TELEGRAM_PPC_PPC_TDLIB_LIBRARY
+  require_file TELEGRAM_PPC_PPC_FFMPEG_ROOT
+fi
+if [ "$target_arch" = all ] || [ "$target_arch" = i386 ]; then
+  require_file TELEGRAM_PPC_I386_CXX
+  require_file TELEGRAM_PPC_I386_TDLIB_LIBRARY
+  require_file TELEGRAM_PPC_I386_FFMPEG_ROOT
+fi
+if [ "$target_arch" = all ] || [ "$target_arch" = x86_64 ]; then
+  require_file TELEGRAM_PPC_X86_64_CXX
+  require_file TELEGRAM_PPC_X86_64_TDLIB_LIBRARY
+  require_file TELEGRAM_PPC_X86_64_FFMPEG_ROOT
+fi
 
 mkdir -p "$TELEGRAM_PPC_BUILD_ROOT"
 if [ "$target_arch" = all ] || [ "$target_arch" = ppc ]; then

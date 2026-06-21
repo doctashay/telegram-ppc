@@ -1,11 +1,13 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches:
       - main
       - gh-actions
+      - sailplane-rename
 
 permissions:
   contents: read
@@ -112,3 +114,46 @@ jobs:
           file "$binary"
           lipo "$binary" -verify_arch arm64
           otool -L "$binary"
+          {
+            echo "APP_BUNDLE=$app"
+            echo "APP_EXECUTABLE=$executable"
+          } >> "$GITHUB_ENV"
+
+      - name: Launch app and capture screen
+        run: |
+          set -euo pipefail
+
+          mkdir -p artifacts/apple-silicon
+          open -n "$APP_BUNDLE"
+
+          for _ in $(seq 1 20); do
+            if pgrep -x "$APP_EXECUTABLE" >/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          pgrep -x "$APP_EXECUTABLE" >/dev/null
+
+          for _ in $(seq 1 20); do
+            window_count="$(osascript -e "tell application \"System Events\" to count windows of process \"$APP_EXECUTABLE\"" 2>/dev/null || echo 0)"
+            if [ "$window_count" -gt 0 ]; then
+              break
+            fi
+            sleep 1
+          done
+
+          osascript -e "tell application \"System Events\" to count windows of process \"$APP_EXECUTABLE\"" > artifacts/apple-silicon/window-count.txt
+          test "$(cat artifacts/apple-silicon/window-count.txt)" -gt 0
+
+          screencapture -x artifacts/apple-silicon/launch.png
+          cp -R "$APP_BUNDLE" artifacts/apple-silicon/
+          cp -R "$HOME/Library/Logs/DiagnosticReports" artifacts/apple-silicon/DiagnosticReports 2>/dev/null || true
+          pkill -x "$APP_EXECUTABLE" || true
+
+      - name: Upload Apple Silicon launch artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: apple-silicon-launch
+          path: artifacts/apple-silicon
+          retention-days: 14

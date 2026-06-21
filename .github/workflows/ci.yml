@@ -72,3 +72,43 @@ jobs:
 
       - name: Verify CMake metadata is readable
         run: cmake --version
+
+  apple-silicon:
+    name: Apple Silicon macOS 26
+    runs-on: macos-26
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Install native dependencies
+        run: |
+          brew install cmake pkg-config nlohmann-json tdlib ffmpeg
+
+      - name: Prepare dummy credentials
+        run: cp TelegramCredentials.example.h TelegramCredentials.h
+
+      - name: Configure arm64 app
+        run: |
+          cmake -S . -B build/apple-silicon \
+            -G "Unix Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=arm64 \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
+            -DTELEGRAM_PPC_MIN_SYSTEM_VERSION=11.0 \
+            -DTELEGRAM_PPC_CPU_TARGET=native
+
+      - name: Build arm64 app
+        run: cmake --build build/apple-silicon -- -j"$(sysctl -n hw.ncpu)"
+
+      - name: Verify arm64 app bundle
+        run: |
+          app="$(find build/apple-silicon -maxdepth 1 -name "*.app" -print -quit)"
+          test -n "$app"
+          executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Contents/Info.plist")"
+          binary="$app/Contents/MacOS/$executable"
+          test -x "$binary"
+          plutil -lint "$app/Contents/Info.plist"
+          file "$binary"
+          lipo "$binary" -verify_arch arm64
+          otool -L "$binary"

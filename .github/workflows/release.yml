@@ -103,7 +103,7 @@ jobs:
               . /opt/ppc-darwin/bin/telegramppc-env
               export TELEGRAM_PPC_BUILD_ROOT=/work/build
               export TELEGRAM_PPC_DIST_DIR=/work/dist
-              export TELEGRAM_PPC_DEPENDENCY_ROOTS=/opt/ppc-darwin/macports-ppc/opt/local
+              export TELEGRAM_PPC_DEPENDENCY_ROOTS=/opt/ppc-darwin/common
               scripts/ci/write-build-config.sh local-build-config.ci.sh
               scripts/build-universal.sh --config local-build-config.ci.sh --clean --arch "${{ matrix.arch }}" --skip-assemble
             '
@@ -189,7 +189,7 @@ jobs:
               . /opt/ppc-darwin/bin/telegramppc-env
               export TELEGRAM_PPC_BUILD_ROOT=/work/build
               export TELEGRAM_PPC_DIST_DIR=/work/dist
-              export TELEGRAM_PPC_DEPENDENCY_ROOTS=/opt/ppc-darwin/macports-ppc/opt/local
+              export TELEGRAM_PPC_DEPENDENCY_ROOTS=/opt/ppc-darwin/common
               scripts/ci/write-build-config.sh local-build-config.ci.sh
               scripts/build-universal.sh --config local-build-config.ci.sh --skip-build
               scripts/ci/verify-release-app.sh dist/Sailplane.app

@@ -19,7 +19,7 @@ if [ ! -f "$source_dir/configure" ]; then
 fi
 
 build_one() {
-  local name=$1 cc=$2 deployment=$3
+  local name=$1 cc=$2 sdk_root=$3 deployment=$4
   local prefix="$TELEGRAM_PPC_CI_ROOT/deps/$name/zlib"
   local build_dir="$TELEGRAM_PPC_CI_ROOT/build/zlib-$name"
 
@@ -34,13 +34,14 @@ build_one() {
   (
     cd "$build_dir"
     export CC="$cc"
-    export CFLAGS="-isysroot $TELEGRAM_PPC_SDK_ROOT -mmacosx-version-min=$deployment"
+    export CFLAGS="-isysroot $sdk_root -mmacosx-version-min=$deployment"
     ./configure --static --prefix="$prefix"
     make -j"${TELEGRAM_PPC_JOBS:-2}"
     make install
   )
 }
 
-build_one ppc "$TELEGRAM_PPC_PPC_CC" 10.4
-build_one i386 "$TELEGRAM_PPC_I386_CC" 10.4
-build_one x86_64 "$TELEGRAM_PPC_X86_64_CC" 10.5
+build_one ppc "$TELEGRAM_PPC_PPC_CC" "$TELEGRAM_PPC_SDK_ROOT" 10.4
+build_one i386 "$TELEGRAM_PPC_I386_CC" "$TELEGRAM_PPC_SDK_ROOT" 10.4
+build_one x86_64 "$TELEGRAM_PPC_X86_64_CC" "$TELEGRAM_PPC_SDK_ROOT" 10.5
+build_one arm64 "$TELEGRAM_PPC_ARM64_CC" "$TELEGRAM_PPC_ARM64_SDK_ROOT" 11.0

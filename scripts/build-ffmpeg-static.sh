@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: scripts/build-ffmpeg-static.sh [--config PATH] [--arch ppc|i386|x86_64|all] [--source PATH] [--clean]
+Usage: scripts/build-ffmpeg-static.sh [--config PATH] [--arch ppc|i386|x86_64|arm64|all] [--source PATH] [--clean]
 
 Build lean static FFmpeg libraries for the Sailplane universal build.
 The output prefixes are the TELEGRAM_PPC_<ARCH>_STATIC_FFMPEG_ROOT values from local-build-config.sh.
@@ -59,22 +59,31 @@ arch_var_prefix() {
     ppc) printf '%s\n' TELEGRAM_PPC_PPC ;;
     i386) printf '%s\n' TELEGRAM_PPC_I386 ;;
     x86_64) printf '%s\n' TELEGRAM_PPC_X86_64 ;;
+    arm64) printf '%s\n' TELEGRAM_PPC_ARM64 ;;
     *) echo "unknown architecture: $1" >&2; exit 2 ;;
   esac
 }
 
 build_one() {
-  local name=$1 target_os=$2 arch_name=$3 cpu=$4 cc=$5 prefix=$6 deployment=$7 extra_cflags=$8 extra_ldflags=$9
+  local name=$1 target_os=$2 arch_name=$3 cpu=$4 cc=$5 sdk_root=$6 prefix=$7 deployment=$8 extra_cflags=$9 extra_ldflags=${10}
   local build_dir="$TELEGRAM_PPC_BUILD_ROOT/ffmpeg-static-$name"
   local tool_prefix="${cc%gcc}"
   local darwin_tools_dir
   darwin_tools_dir="$(dirname "$TELEGRAM_PPC_LIPO")"
   local darwin_tool_arch=$name
+  local cc_name
+  local cc_tool_prefix=""
   local variable_prefix
   variable_prefix="$(arch_var_prefix "$name")"
   local ar_var="${variable_prefix}_STATIC_FFMPEG_AR"
   local ranlib_var="${variable_prefix}_STATIC_FFMPEG_RANLIB"
   local strip_var="${variable_prefix}_STATIC_FFMPEG_STRIP"
+  cc_name="$(basename "$cc")"
+  case "$cc_name" in
+    *-gcc|*-g++|*-cc|*-c++)
+      cc_tool_prefix="${cc_name%-*}-"
+      ;;
+  esac
   if [ "$darwin_tool_arch" = i386 ]; then
     darwin_tool_arch=i386
   fi
@@ -82,6 +91,15 @@ build_one() {
   local ranlib="${!ranlib_var:-$(tool_or_empty "${tool_prefix}ranlib")}"
   local strip="${!strip_var:-$(tool_or_empty "${tool_prefix}strip")}"
 
+  if [ -z "$ar" ] && [ -n "$cc_tool_prefix" ]; then
+    ar="$(tool_or_empty "$darwin_tools_dir/${cc_tool_prefix}ar")"
+  fi
+  if [ -z "$ranlib" ] && [ -n "$cc_tool_prefix" ]; then
+    ranlib="$(tool_or_empty "$darwin_tools_dir/${cc_tool_prefix}ranlib")"
+  fi
+  if [ -z "$strip" ] && [ -n "$cc_tool_prefix" ]; then
+    strip="$(tool_or_empty "$darwin_tools_dir/${cc_tool_prefix}strip")"
+  fi
   if [ -z "$ar" ]; then
     ar="$(tool_or_empty "$darwin_tools_dir/$darwin_tool_arch-apple-darwin9-ar")"
   fi
@@ -113,7 +131,7 @@ build_one() {
       --ar="$ar" \
       --ranlib="$ranlib" \
       ${strip:+--strip="$strip"} \
-      --sysroot="$TELEGRAM_PPC_SDK_ROOT" \
+      --sysroot="$sdk_root" \
       --enable-cross-compile \
       --disable-programs \
       --disable-doc \
@@ -216,18 +234,22 @@ build_one() {
 }
 
 case "$arch" in
-  ppc|i386|x86_64|all) ;;
+  ppc|i386|x86_64|arm64|all) ;;
   *) echo "unknown architecture: $arch" >&2; exit 2 ;;
 esac
 
 if [ "$arch" = ppc ] || [ "$arch" = all ]; then
-  build_one ppc darwin ppc powerpc "$TELEGRAM_PPC_PPC_CC" "${TELEGRAM_PPC_PPC_STATIC_FFMPEG_ROOT:-$TELEGRAM_PPC_PPC_FFMPEG_ROOT}" 10.4 "${TELEGRAM_PPC_PPC_STATIC_FFMPEG_EXTRA_CFLAGS:-}" "${TELEGRAM_PPC_PPC_STATIC_FFMPEG_EXTRA_LDFLAGS:-}"
+  build_one ppc darwin ppc powerpc "$TELEGRAM_PPC_PPC_CC" "$TELEGRAM_PPC_SDK_ROOT" "${TELEGRAM_PPC_PPC_STATIC_FFMPEG_ROOT:-$TELEGRAM_PPC_PPC_FFMPEG_ROOT}" 10.4 "${TELEGRAM_PPC_PPC_STATIC_FFMPEG_EXTRA_CFLAGS:-}" "${TELEGRAM_PPC_PPC_STATIC_FFMPEG_EXTRA_LDFLAGS:-}"
 fi
 
 if [ "$arch" = i386 ] || [ "$arch" = all ]; then
-  build_one i386 darwin x86 i686 "$TELEGRAM_PPC_I386_CC" "${TELEGRAM_PPC_I386_STATIC_FFMPEG_ROOT:-$TELEGRAM_PPC_I386_FFMPEG_ROOT}" 10.4 "${TELEGRAM_PPC_I386_STATIC_FFMPEG_EXTRA_CFLAGS:-}" "${TELEGRAM_PPC_I386_STATIC_FFMPEG_EXTRA_LDFLAGS:-}"
+  build_one i386 darwin x86 i686 "$TELEGRAM_PPC_I386_CC" "$TELEGRAM_PPC_SDK_ROOT" "${TELEGRAM_PPC_I386_STATIC_FFMPEG_ROOT:-$TELEGRAM_PPC_I386_FFMPEG_ROOT}" 10.4 "${TELEGRAM_PPC_I386_STATIC_FFMPEG_EXTRA_CFLAGS:-}" "${TELEGRAM_PPC_I386_STATIC_FFMPEG_EXTRA_LDFLAGS:-}"
 fi
 
 if [ "$arch" = x86_64 ] || [ "$arch" = all ]; then
-  build_one x86_64 darwin x86_64 x86-64 "$TELEGRAM_PPC_X86_64_CC" "${TELEGRAM_PPC_X86_64_STATIC_FFMPEG_ROOT:-$TELEGRAM_PPC_X86_64_FFMPEG_ROOT}" 10.5 "${TELEGRAM_PPC_X86_64_STATIC_FFMPEG_EXTRA_CFLAGS:-}" "${TELEGRAM_PPC_X86_64_STATIC_FFMPEG_EXTRA_LDFLAGS:-}"
+  build_one x86_64 darwin x86_64 x86-64 "$TELEGRAM_PPC_X86_64_CC" "$TELEGRAM_PPC_SDK_ROOT" "${TELEGRAM_PPC_X86_64_STATIC_FFMPEG_ROOT:-$TELEGRAM_PPC_X86_64_FFMPEG_ROOT}" 10.5 "${TELEGRAM_PPC_X86_64_STATIC_FFMPEG_EXTRA_CFLAGS:-}" "${TELEGRAM_PPC_X86_64_STATIC_FFMPEG_EXTRA_LDFLAGS:-}"
+fi
+
+if [ "$arch" = arm64 ] || [ "$arch" = all ]; then
+  build_one arm64 darwin arm64 armv8-a "$TELEGRAM_PPC_ARM64_CC" "$TELEGRAM_PPC_ARM64_SDK_ROOT" "${TELEGRAM_PPC_ARM64_STATIC_FFMPEG_ROOT:-$TELEGRAM_PPC_ARM64_FFMPEG_ROOT}" 11.0 "${TELEGRAM_PPC_ARM64_STATIC_FFMPEG_EXTRA_CFLAGS:-}" "${TELEGRAM_PPC_ARM64_STATIC_FFMPEG_EXTRA_LDFLAGS:-}"
 fi

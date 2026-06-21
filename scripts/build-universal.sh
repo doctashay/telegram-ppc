@@ -5,11 +5,11 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/build-universal.sh [--config PATH] [--clean] [--skip-build]
 
-Build ppc, i386, and x86_64 thin apps, then assemble dist/Sailplane.app.
+Build ppc, i386, x86_64, and arm64 thin apps, then assemble dist/Sailplane.app.
 Machine-specific paths come from local-build-config.sh.
 
 Options:
-  --arch ARCH       Build only one thin app: ppc, i386, x86_64, or all.
+  --arch ARCH       Build only one thin app: ppc, i386, x86_64, arm64, or all.
   --skip-assemble  Build thin app slices without assembling the universal app.
 USAGE
 }
@@ -34,7 +34,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$target_arch" in
-  all|ppc|i386|x86_64) ;;
+  all|ppc|i386|x86_64|arm64) ;;
   *) echo "unknown architecture: $target_arch" >&2; usage >&2; exit 2 ;;
 esac
 
@@ -76,7 +76,7 @@ join_extra_cmake_args() {
 }
 
 build_slice() {
-  local name=$1 arch=$2 compiler=$3 cpu=$4 deployment=$5 ffmpeg_root=$6 tdlib=$7 prefix=$8
+  local name=$1 arch=$2 compiler=$3 sdk_root=$4 cpu=$5 deployment=$6 ffmpeg_root=$7 tdlib=$8 prefix=$9
   local build_dir="$TELEGRAM_PPC_BUILD_ROOT/build-$name"
 
   if [ "$clean" -eq 1 ]; then
@@ -93,7 +93,7 @@ build_slice() {
       -DCMAKE_SYSTEM_NAME=Darwin \
       -DCMAKE_CXX_COMPILER="$compiler" \
       -DCMAKE_OBJCXX_COMPILER="$compiler" \
-      -DCMAKE_OSX_SYSROOT="$TELEGRAM_PPC_SDK_ROOT" \
+      -DCMAKE_OSX_SYSROOT="$sdk_root" \
       -DCMAKE_OSX_DEPLOYMENT_TARGET="$deployment" \
       -DCMAKE_OSX_ARCHITECTURES="$arch" \
       -DCMAKE_BUILD_TYPE=Release \
@@ -168,7 +168,7 @@ normalize_bundle() {
 verify_bundle() {
   local app=$1
 
-  "$TELEGRAM_PPC_LIPO" "$app/Contents/MacOS/Sailplane" -verify_arch ppc i386 x86_64
+  "$TELEGRAM_PPC_LIPO" "$app/Contents/MacOS/Sailplane" -verify_arch ppc i386 x86_64 arm64
   verify_relocatable_bundle "$app"
 }
 
@@ -199,27 +199,31 @@ assemble_universal() {
   local ppc_app="$TELEGRAM_PPC_BUILD_ROOT/build-ppc/Sailplane.app"
   local i386_app="$TELEGRAM_PPC_BUILD_ROOT/build-i386/Sailplane.app"
   local x64_app="$TELEGRAM_PPC_BUILD_ROOT/build-x86_64/Sailplane.app"
+  local arm64_app="$TELEGRAM_PPC_BUILD_ROOT/build-arm64/Sailplane.app"
 
   rm -rf "$app"
   mkdir -p "$dist"
-  cp -a "$x64_app" "$app"
+  cp -a "$arm64_app" "$app"
 
   "$TELEGRAM_PPC_LIPO" -create \
     "$ppc_app/Contents/MacOS/Sailplane" \
     "$i386_app/Contents/MacOS/Sailplane" \
     "$x64_app/Contents/MacOS/Sailplane" \
+    "$arm64_app/Contents/MacOS/Sailplane" \
     -output "$app/Contents/MacOS/Sailplane"
 
   {
     list_framework_names "$ppc_app/Contents/Frameworks"
     list_framework_names "$i386_app/Contents/Frameworks"
     list_framework_names "$x64_app/Contents/Frameworks"
+    list_framework_names "$arm64_app/Contents/Frameworks"
   } | sort -u | while read -r name; do
     [ -n "$name" ] || continue
     inputs=()
     [ -e "$ppc_app/Contents/Frameworks/$name" ] && inputs+=("$ppc_app/Contents/Frameworks/$name")
     [ -e "$i386_app/Contents/Frameworks/$name" ] && inputs+=("$i386_app/Contents/Frameworks/$name")
     [ -e "$x64_app/Contents/Frameworks/$name" ] && inputs+=("$x64_app/Contents/Frameworks/$name")
+    [ -e "$arm64_app/Contents/Frameworks/$name" ] && inputs+=("$arm64_app/Contents/Frameworks/$name")
     copy_or_lipo "$app/Contents/Frameworks/$name" "${inputs[@]}"
   done
 
@@ -235,31 +239,42 @@ require_file TELEGRAM_PPC_INSTALL_NAME_TOOL
 require_file TELEGRAM_PPC_OTOOL
 require_file TELEGRAM_PPC_LIPO
 
-if [ "$target_arch" = all ] || [ "$target_arch" = ppc ]; then
-  require_file TELEGRAM_PPC_PPC_CXX
-  require_file TELEGRAM_PPC_PPC_TDLIB_LIBRARY
-  require_file TELEGRAM_PPC_PPC_FFMPEG_ROOT
-fi
-if [ "$target_arch" = all ] || [ "$target_arch" = i386 ]; then
-  require_file TELEGRAM_PPC_I386_CXX
-  require_file TELEGRAM_PPC_I386_TDLIB_LIBRARY
-  require_file TELEGRAM_PPC_I386_FFMPEG_ROOT
-fi
-if [ "$target_arch" = all ] || [ "$target_arch" = x86_64 ]; then
-  require_file TELEGRAM_PPC_X86_64_CXX
-  require_file TELEGRAM_PPC_X86_64_TDLIB_LIBRARY
-  require_file TELEGRAM_PPC_X86_64_FFMPEG_ROOT
+if [ "$skip_build" -eq 0 ]; then
+  if [ "$target_arch" = all ] || [ "$target_arch" = ppc ]; then
+    require_file TELEGRAM_PPC_PPC_CXX
+    require_file TELEGRAM_PPC_PPC_TDLIB_LIBRARY
+    require_file TELEGRAM_PPC_PPC_FFMPEG_ROOT
+  fi
+  if [ "$target_arch" = all ] || [ "$target_arch" = i386 ]; then
+    require_file TELEGRAM_PPC_I386_CXX
+    require_file TELEGRAM_PPC_I386_TDLIB_LIBRARY
+    require_file TELEGRAM_PPC_I386_FFMPEG_ROOT
+  fi
+  if [ "$target_arch" = all ] || [ "$target_arch" = x86_64 ]; then
+    require_file TELEGRAM_PPC_X86_64_CXX
+    require_file TELEGRAM_PPC_X86_64_TDLIB_LIBRARY
+    require_file TELEGRAM_PPC_X86_64_FFMPEG_ROOT
+  fi
+  if [ "$target_arch" = all ] || [ "$target_arch" = arm64 ]; then
+    require_file TELEGRAM_PPC_ARM64_CXX
+    require_file TELEGRAM_PPC_ARM64_SDK_ROOT
+    require_file TELEGRAM_PPC_ARM64_TDLIB_LIBRARY
+    require_file TELEGRAM_PPC_ARM64_FFMPEG_ROOT
+  fi
 fi
 
 mkdir -p "$TELEGRAM_PPC_BUILD_ROOT"
 if [ "$target_arch" = all ] || [ "$target_arch" = ppc ]; then
-  build_slice ppc ppc "$TELEGRAM_PPC_PPC_CXX" generic 10.4 "$TELEGRAM_PPC_PPC_FFMPEG_ROOT" "$TELEGRAM_PPC_PPC_TDLIB_LIBRARY" TELEGRAM_PPC_PPC
+  build_slice ppc ppc "$TELEGRAM_PPC_PPC_CXX" "$TELEGRAM_PPC_SDK_ROOT" generic 10.4 "$TELEGRAM_PPC_PPC_FFMPEG_ROOT" "$TELEGRAM_PPC_PPC_TDLIB_LIBRARY" TELEGRAM_PPC_PPC
 fi
 if [ "$target_arch" = all ] || [ "$target_arch" = i386 ]; then
-  build_slice i386 i386 "$TELEGRAM_PPC_I386_CXX" intel 10.4 "$TELEGRAM_PPC_I386_FFMPEG_ROOT" "$TELEGRAM_PPC_I386_TDLIB_LIBRARY" TELEGRAM_PPC_I386
+  build_slice i386 i386 "$TELEGRAM_PPC_I386_CXX" "$TELEGRAM_PPC_SDK_ROOT" intel 10.4 "$TELEGRAM_PPC_I386_FFMPEG_ROOT" "$TELEGRAM_PPC_I386_TDLIB_LIBRARY" TELEGRAM_PPC_I386
 fi
 if [ "$target_arch" = all ] || [ "$target_arch" = x86_64 ]; then
-  build_slice x86_64 x86_64 "$TELEGRAM_PPC_X86_64_CXX" intel 10.5 "$TELEGRAM_PPC_X86_64_FFMPEG_ROOT" "$TELEGRAM_PPC_X86_64_TDLIB_LIBRARY" TELEGRAM_PPC_X86_64
+  build_slice x86_64 x86_64 "$TELEGRAM_PPC_X86_64_CXX" "$TELEGRAM_PPC_SDK_ROOT" intel 10.5 "$TELEGRAM_PPC_X86_64_FFMPEG_ROOT" "$TELEGRAM_PPC_X86_64_TDLIB_LIBRARY" TELEGRAM_PPC_X86_64
+fi
+if [ "$target_arch" = all ] || [ "$target_arch" = arm64 ]; then
+  build_slice arm64 arm64 "$TELEGRAM_PPC_ARM64_CXX" "$TELEGRAM_PPC_ARM64_SDK_ROOT" native 11.0 "$TELEGRAM_PPC_ARM64_FFMPEG_ROOT" "$TELEGRAM_PPC_ARM64_TDLIB_LIBRARY" TELEGRAM_PPC_ARM64
 fi
 
 if [ "$skip_assemble" -eq 0 ]; then

@@ -14,7 +14,7 @@ if [ ! -d "$td_src/.git" ]; then
 fi
 
 build_one() {
-  local name=$1 arch=$2 cc=$3 cxx=$4 deployment=$5
+  local name=$1 arch=$2 cc=$3 cxx=$4 sdk_root=$5 deployment=$6
   local build_dir="$TELEGRAM_PPC_CI_ROOT/build/tdlib-$name"
   local install_dir="$TELEGRAM_PPC_CI_ROOT/deps/$name/tdlib"
   local zlib_root="$TELEGRAM_PPC_CI_ROOT/deps/$name/zlib"
@@ -28,7 +28,7 @@ build_one() {
     -DCMAKE_SYSTEM_NAME=Darwin \
     -DCMAKE_C_COMPILER="$cc" \
     -DCMAKE_CXX_COMPILER="$cxx" \
-    -DCMAKE_OSX_SYSROOT="$TELEGRAM_PPC_SDK_ROOT" \
+    -DCMAKE_OSX_SYSROOT="$sdk_root" \
     -DCMAKE_OSX_DEPLOYMENT_TARGET="$deployment" \
     -DCMAKE_OSX_ARCHITECTURES="$arch" \
     -DCMAKE_BUILD_TYPE=Release \
@@ -50,12 +50,14 @@ build_one() {
   cmake --install "$build_dir"
 }
 
-build_one ppc ppc "$TELEGRAM_PPC_PPC_CC" "$TELEGRAM_PPC_PPC_CXX" 10.4
-build_one i386 i386 "$TELEGRAM_PPC_I386_CC" "$TELEGRAM_PPC_I386_CXX" 10.4
-build_one x86_64 x86_64 "$TELEGRAM_PPC_X86_64_CC" "$TELEGRAM_PPC_X86_64_CXX" 10.5
+build_one ppc ppc "$TELEGRAM_PPC_PPC_CC" "$TELEGRAM_PPC_PPC_CXX" "$TELEGRAM_PPC_SDK_ROOT" 10.4
+build_one i386 i386 "$TELEGRAM_PPC_I386_CC" "$TELEGRAM_PPC_I386_CXX" "$TELEGRAM_PPC_SDK_ROOT" 10.4
+build_one x86_64 x86_64 "$TELEGRAM_PPC_X86_64_CC" "$TELEGRAM_PPC_X86_64_CXX" "$TELEGRAM_PPC_SDK_ROOT" 10.5
+build_one arm64 arm64 "$TELEGRAM_PPC_ARM64_CC" "$TELEGRAM_PPC_ARM64_CXX" "$TELEGRAM_PPC_ARM64_SDK_ROOT" 11.0
 
 {
   echo "TELEGRAM_PPC_PPC_TDLIB_LIBRARY=$TELEGRAM_PPC_CI_ROOT/deps/ppc/tdlib/lib/libtdjson.dylib"
   echo "TELEGRAM_PPC_I386_TDLIB_LIBRARY=$TELEGRAM_PPC_CI_ROOT/deps/i386/tdlib/lib/libtdjson.dylib"
   echo "TELEGRAM_PPC_X86_64_TDLIB_LIBRARY=$TELEGRAM_PPC_CI_ROOT/deps/x86_64/tdlib/lib/libtdjson.dylib"
+  echo "TELEGRAM_PPC_ARM64_TDLIB_LIBRARY=$TELEGRAM_PPC_CI_ROOT/deps/arm64/tdlib/lib/libtdjson.dylib"
 } >> "$GITHUB_ENV"

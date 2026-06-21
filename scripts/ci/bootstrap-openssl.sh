@@ -19,7 +19,7 @@ if [ ! -f "$source_dir/Configure" ]; then
 fi
 
 build_one() {
-  local name=$1 target=$2 cc=$3 deployment=$4
+  local name=$1 target=$2 cc=$3 sdk_root=$4 deployment=$5
   local prefix="$TELEGRAM_PPC_CI_ROOT/deps/$name/openssl"
   local build_dir="$TELEGRAM_PPC_CI_ROOT/build/openssl-$name"
 
@@ -40,13 +40,14 @@ build_one() {
       no-apps \
       --prefix="$prefix" \
       --openssldir="$prefix/ssl" \
-      -isysroot "$TELEGRAM_PPC_SDK_ROOT" \
+      -isysroot "$sdk_root" \
       -mmacosx-version-min="$deployment"
     make -j"${TELEGRAM_PPC_JOBS:-2}"
     make install_sw
   )
 }
 
-build_one ppc darwin-ppc-cc "$TELEGRAM_PPC_PPC_CC" 10.4
-build_one i386 darwin-i386-cc "$TELEGRAM_PPC_I386_CC" 10.4
-build_one x86_64 darwin64-x86_64-cc "$TELEGRAM_PPC_X86_64_CC" 10.5
+build_one ppc darwin-ppc-cc "$TELEGRAM_PPC_PPC_CC" "$TELEGRAM_PPC_SDK_ROOT" 10.4
+build_one i386 darwin-i386-cc "$TELEGRAM_PPC_I386_CC" "$TELEGRAM_PPC_SDK_ROOT" 10.4
+build_one x86_64 darwin64-x86_64-cc "$TELEGRAM_PPC_X86_64_CC" "$TELEGRAM_PPC_SDK_ROOT" 10.5
+build_one arm64 darwin64-arm64-cc "$TELEGRAM_PPC_ARM64_CC" "$TELEGRAM_PPC_ARM64_SDK_ROOT" 11.0

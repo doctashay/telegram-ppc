@@ -23,7 +23,7 @@ done
 : "${TELEGRAM_PPC_OTOOL:=otool}"
 : "${TELEGRAM_PPC_FORBIDDEN_LOAD_PATH_PATTERN:=/opt/local|/home/|/mnt/|/tmp/}"
 
-"$TELEGRAM_PPC_LIPO" "$binary" -verify_arch ppc i386 x86_64
+"$TELEGRAM_PPC_LIPO" "$binary" -verify_arch ppc i386 x86_64 arm64
 
 bad_loads="$(
   {

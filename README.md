@@ -83,7 +83,6 @@ CI currently verifies PowerPC and i386 builds against a 10.5 SDK, while x86_64 a
 | macOS 14 Sonoma | x | x | ✓ | ✓ |
 | macOS 15 Sequoia | x | x | ✓ | ✓ |
 | macOS 26 Tahoe | x | x | ✓ | ✓ |
-| macOS 27 Golden Gate | x | x | ✓ | ✓ |
 
 </details>
 

@@ -11,10 +11,19 @@
   <a href="https://github.com/doctashay/telegram-ppc/actions/workflows/release.yml"><img alt="arm64 macOS" src="https://img.shields.io/github/actions/workflow/status/doctashay/telegram-ppc/release.yml?branch=main&job=Build%20arm64&label=arm64%20macOS" /></a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/doctashay/telegram-ppc/releases/latest"><img alt="latest release" src="https://img.shields.io/github/v/release/doctashay/telegram-ppc?label=release" /></a>
+  <a href="https://app.codacy.com/gh/doctashay/telegram-ppc/dashboard"><img alt="Codacy grade" src="https://app.codacy.com/project/badge/Grade/da6139ff95a444feb866ad252037c3f9" /></a>
+  <a href="LICENSE"><img alt="license" src="https://img.shields.io/github/license/doctashay/telegram-ppc" /></a>
+  <img alt="macOS" src="https://img.shields.io/badge/macOS-10.4%2B-blue" />
+</p>
+
 ## Project Overview
 Sailplane is an unofficial Telegram client for macOS, written in Objective-C++ with TDLib handling the Telegram protocol.
 
 The project focuses on keeping Telegram usable on older Macs without splitting the codebase away from modern macOS support. The same client is intended to build for PowerPC, Intel, and Apple Silicon, with compatibility work kept close to the platform code. A full compatibility chart can be found [here](#compatibility).
+
+
 
 ## Features
 
@@ -28,14 +37,24 @@ The project focuses on keeping Telegram usable on older Macs without splitting t
 - Twemoji-based emoji rendering
 - Inline video playback through FFmpeg
 
+## Releases
+
+Tagged releases include a universal DMG along with separate builds for each architecture. If you are not sure which one to use, start with the universal build.
+
+| File | Use this for |
+| --- | --- |
+| `Sailplane-*-universal.dmg` | Most users |
+| `Sailplane-*-ppc.dmg` | PowerPC Macs |
+| `Sailplane-*-i386.dmg` | 32-bit Intel Macs |
+| `Sailplane-*-x86_64.dmg` | 64-bit Intel Macs |
+| `Sailplane-*-arm64.dmg` | Apple Silicon Macs |
+
+Download the latest release here: https://github.com/doctashay/telegram-ppc/releases/latest
+
 ## Supported Targets
 
 - Mac OS X 10.4 Tiger or later
 - PowerPC, Intel and Apple Silicon Macs 
-- MacPorts-based build environment
-- A C++20-capable MacPorts compiler, tested with `g++-mp-14`
-
-## Compatibility
 
 <details>
 <summary>Architecture support by macOS version</summary>

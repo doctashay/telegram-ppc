@@ -225,17 +225,13 @@
   [self setAuthBusy:NO message:nil];
 
   if ([state isEqualToString:@"authorizationStateWaitTdlibParameters"]) {
-    [self showAuthWindow];
-    [self configureAuthWindowForState:state];
     if (!tdlibConfigured_) {
       tdlibConfigured_ = YES;
-      [self setAuthBusy:YES message:@"Configuring TDLib..."];
+      [self setStatusText:@"Configuring TDLib..."];
       [bridge_ submitAuthInput:@""];
     }
   } else if ([state isEqualToString:@"authorizationStateWaitEncryptionKey"]) {
-    [self showAuthWindow];
-    [self configureAuthWindowForState:state];
-    [self setAuthBusy:YES message:@"Opening local database..."];
+    [self setStatusText:@"Opening local database..."];
     [bridge_ submitAuthInput:@""];
   } else if ([state isEqualToString:@"authorizationStateWaitPhoneNumber"]) {
     [self showAuthWindow];

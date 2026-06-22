@@ -46,6 +46,7 @@ check_executable scripts/ci/bootstrap-osxcross.sh
 check_executable scripts/ci/bootstrap-tdlib.sh
 check_executable scripts/ci/bootstrap-zlib.sh
 check_executable scripts/ci/check-repo.sh
+check_executable scripts/ci/use-darwin-legacy-cross-env.sh
 check_executable scripts/ci/write-build-config.sh
 check_executable scripts/ci/verify-release-app.sh
 

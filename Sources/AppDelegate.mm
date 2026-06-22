@@ -32,7 +32,8 @@
   [ami setSubmenu:am];
   SEL setAppleMenuSel = NSSelectorFromString(@"setAppleMenu:");
   if ([NSApp respondsToSelector:setAppleMenuSel]) [NSApp performSelector:setAppleMenuSel withObject:am];
-  [am addItemWithTitle:@"About Sailplane" action:@selector(orderFrontStandardAboutPanel:) keyEquivalent:@""];
+  NSMenuItem *aboutItem = [am addItemWithTitle:@"About Sailplane" action:@selector(showAboutPanel:) keyEquivalent:@""];
+  [aboutItem setTarget:self];
   [am addItem:[NSMenuItem separatorItem]];
   [am addItemWithTitle:@"Preferences..." action:nil keyEquivalent:@","];
   [am addItem:[NSMenuItem separatorItem]];
@@ -104,6 +105,23 @@
   NSMenu *hm = [[[NSMenu alloc] initWithTitle:@"Help"] autorelease];
   [hmi setSubmenu:hm];
   [hm addItemWithTitle:@"Sailplane Help" action:nil keyEquivalent:@""];
+}
+
+- (IBAction)showAboutPanel:(id)sender {
+  (void)sender;
+  NSString *iconPath = [[NSBundle mainBundle] pathForResource:@"Sailplane" ofType:@"png"];
+  NSImage *icon = iconPath ? [[[NSImage alloc] initWithContentsOfFile:iconPath] autorelease] : nil;
+  if (!icon) icon = [NSApp applicationIconImage];
+
+  NSDictionary *info = [[NSBundle mainBundle] infoDictionary];
+  NSString *version = [info objectForKey:@"CFBundleShortVersionString"];
+  NSString *build = [info objectForKey:@"CFBundleVersion"];
+  NSMutableDictionary *options = [NSMutableDictionary dictionary];
+  [options setObject:@"Sailplane" forKey:@"ApplicationName"];
+  if (icon) [options setObject:icon forKey:@"ApplicationIcon"];
+  if ([version length]) [options setObject:version forKey:@"ApplicationVersion"];
+  if ([build length]) [options setObject:build forKey:@"Version"];
+  [NSApp orderFrontStandardAboutPanelWithOptions:options];
 }
 
 - (id)init {

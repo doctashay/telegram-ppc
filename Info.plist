@@ -7,7 +7,7 @@
   <key>CFBundleExecutable</key>
   <string>Sailplane</string>
   <key>CFBundleIconFile</key>
-  <string>Sailplane.icns</string>
+  <string>Sailplane</string>
   <key>CFBundleIdentifier</key>
   <string>com.shay.Sailplane</string>
   <key>CFBundleInfoDictionaryVersion</key>

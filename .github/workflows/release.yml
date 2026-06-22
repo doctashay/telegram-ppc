@@ -28,7 +28,7 @@ permissions:
 env:
   TELEGRAM_PPC_JOBS: "2"
   TELEGRAM_PPC_FFMPEG_LINKAGE: static
-  TELEGRAM_PPC_TOOLCHAIN_IMAGE: ghcr.io/doctashay/telegramppc-darwin-universal:latest
+  TELEGRAM_PPC_TOOLCHAIN_IMAGE: ghcr.io/doctashay/darwin-legacy-cross:latest
 
 jobs:
   build:
@@ -43,7 +43,7 @@ jobs:
           - x86_64
           - arm64
     env:
-      TOOLCHAIN_IMAGE: ghcr.io/doctashay/telegramppc-darwin-universal:latest
+      TOOLCHAIN_IMAGE: ghcr.io/doctashay/darwin-legacy-cross:latest
 
     steps:
       - name: Check out repository
@@ -100,10 +100,10 @@ jobs:
             bash -lc '
               set -euo pipefail
               cd /work
-              . /opt/ppc-darwin/bin/telegramppc-env
+              . /opt/darwin-legacy-cross/bin/darwin-legacy-cross-env
               export TELEGRAM_PPC_BUILD_ROOT=/work/build
               export TELEGRAM_PPC_DIST_DIR=/work/dist
-              export TELEGRAM_PPC_DEPENDENCY_ROOTS=/opt/ppc-darwin/common
+              . scripts/ci/use-darwin-legacy-cross-env.sh
               scripts/ci/write-build-config.sh local-build-config.ci.sh
               scripts/build-universal.sh --config local-build-config.ci.sh --clean --arch "${{ matrix.arch }}" --skip-assemble
             '
@@ -128,7 +128,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: build
     env:
-      TOOLCHAIN_IMAGE: ghcr.io/doctashay/telegramppc-darwin-universal:latest
+      TOOLCHAIN_IMAGE: ghcr.io/doctashay/darwin-legacy-cross:latest
 
     steps:
       - name: Check out repository
@@ -143,7 +143,7 @@ jobs:
         run: docker pull "$TOOLCHAIN_IMAGE"
 
       - name: Verify toolchain image
-        run: docker run --rm "$TOOLCHAIN_IMAGE" ppc-darwin-smoke
+        run: docker run --rm "$TOOLCHAIN_IMAGE" test-all-targets
 
       - name: Set app version
         env:
@@ -186,10 +186,10 @@ jobs:
             bash -lc '
               set -euo pipefail
               cd /work
-              . /opt/ppc-darwin/bin/telegramppc-env
+              . /opt/darwin-legacy-cross/bin/darwin-legacy-cross-env
               export TELEGRAM_PPC_BUILD_ROOT=/work/build
               export TELEGRAM_PPC_DIST_DIR=/work/dist
-              export TELEGRAM_PPC_DEPENDENCY_ROOTS=/opt/ppc-darwin/common
+              . scripts/ci/use-darwin-legacy-cross-env.sh
               scripts/ci/write-build-config.sh local-build-config.ci.sh
               scripts/build-universal.sh --config local-build-config.ci.sh --skip-build
               scripts/ci/verify-release-app.sh dist/Sailplane.app

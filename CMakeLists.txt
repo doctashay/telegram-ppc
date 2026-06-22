@@ -47,6 +47,7 @@ if(TELEGRAM_PPC_FFMPEG_ROOT)
     set(TELEGRAM_PPC_FFMPEG_LIBRARY_NAMES
       "${TELEGRAM_PPC_FFMPEG_LIB_DIR}/libavcodec.a"
       "${TELEGRAM_PPC_FFMPEG_LIB_DIR}/libavformat.a"
+      "${TELEGRAM_PPC_FFMPEG_LIB_DIR}/libswresample.a"
       "${TELEGRAM_PPC_FFMPEG_LIB_DIR}/libswscale.a"
       "${TELEGRAM_PPC_FFMPEG_LIB_DIR}/libavutil.a"
     )

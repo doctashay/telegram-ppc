@@ -89,7 +89,7 @@ jobs:
     steps:
       - name: Log in to GitHub Container Registry
         env:
-          GHCR_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ secrets.GHCR_PAT || github.token }}
         run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Pull toolchain image
@@ -132,7 +132,7 @@ jobs:
 
       - name: Log in to GitHub Container Registry
         env:
-          GHCR_TOKEN: ${{ github.token }}
+          GHCR_TOKEN: ${{ secrets.GHCR_PAT || github.token }}
         run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
 
       - name: Pull toolchain image
@@ -215,20 +215,23 @@ jobs:
 
       - name: Install native dependencies
         run: |
-          brew install cmake pkg-config nlohmann-json tdlib ffmpeg
+          brew install cmake pkg-config nlohmann-json tdlib ffmpeg ca-certificates
 
       - name: Prepare dummy credentials
         run: cp TelegramCredentials.example.h TelegramCredentials.h
 
       - name: Configure arm64 app
         run: |
+          ca_bundle="$(brew --prefix)/etc/ca-certificates/cert.pem"
+          test -f "$ca_bundle"
           cmake -S . -B build/apple-silicon \
             -G "Unix Makefiles" \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=arm64 \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
             -DTELEGRAM_PPC_MIN_SYSTEM_VERSION=11.0 \
-            -DTELEGRAM_PPC_CPU_TARGET=native
+            -DTELEGRAM_PPC_CPU_TARGET=native \
+            -DTELEGRAM_PPC_CA_BUNDLE="$ca_bundle"
 
       - name: Build arm64 app
         run: cmake --build build/apple-silicon -- -j"$(sysctl -n hw.ncpu)"

@@ -7,6 +7,7 @@
 #import "MessageCell.h"
 #import "MessageContent.h"
 #import "TelegramBridge.h"
+#import "UpdateChecker.h"
 #import "VideoPlayerView.h"
 
 @implementation AppDelegate
@@ -29,11 +30,17 @@
     [mb addItem:ami];
   }
   NSMenu *am = [[[NSMenu alloc] initWithTitle:@"Sailplane"] autorelease];
+  [am setAutoenablesItems:NO];
   [ami setSubmenu:am];
   SEL setAppleMenuSel = NSSelectorFromString(@"setAppleMenu:");
   if ([NSApp respondsToSelector:setAppleMenuSel]) [NSApp performSelector:setAppleMenuSel withObject:am];
   NSMenuItem *aboutItem = [am addItemWithTitle:@"About Sailplane" action:@selector(showAboutPanel:) keyEquivalent:@""];
   [aboutItem setTarget:self];
+  [aboutItem setEnabled:YES];
+  [am addItem:[NSMenuItem separatorItem]];
+  NSMenuItem *updatesItem = [am addItemWithTitle:@"Check for Updates..." action:@selector(checkForUpdates:) keyEquivalent:@""];
+  [updatesItem setTarget:self];
+  [updatesItem setEnabled:YES];
   [am addItem:[NSMenuItem separatorItem]];
   [am addItemWithTitle:@"Preferences..." action:nil keyEquivalent:@","];
   [am addItem:[NSMenuItem separatorItem]];
@@ -122,6 +129,11 @@
   if ([version length]) [options setObject:version forKey:@"ApplicationVersion"];
   if ([build length]) [options setObject:build forKey:@"Version"];
   [NSApp orderFrontStandardAboutPanelWithOptions:options];
+}
+
+- (IBAction)checkForUpdates:(id)sender {
+  (void)sender;
+  [UpdateChecker checkNow];
 }
 
 - (id)init {
@@ -628,6 +640,7 @@
   [NSTimer scheduledTimerWithTimeInterval:0.10 target:bridge_ selector:@selector(poll) userInfo:nil repeats:YES];
   [bridge_ poll];
   [self performSelector:@selector(resumeAuthorizationFlowAfterLaunch) withObject:nil afterDelay:0.25];
+  [UpdateChecker performSelector:@selector(scheduleAutomaticCheck) withObject:nil afterDelay:5.0];
 }
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)s {

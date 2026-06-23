@@ -28,7 +28,7 @@ permissions:
 env:
   TELEGRAM_PPC_JOBS: "2"
   TELEGRAM_PPC_FFMPEG_LINKAGE: static
-  TELEGRAM_PPC_TOOLCHAIN_IMAGE: ghcr.io/doctashay/darwin-legacy-cross:latest
+  TELEGRAM_PPC_TOOLCHAIN_IMAGE: ghcr.io/doctashay/darwin-legacy-cross:static-curl-20260622
 
 jobs:
   build:
@@ -43,7 +43,7 @@ jobs:
           - x86_64
           - arm64
     env:
-      TOOLCHAIN_IMAGE: ghcr.io/doctashay/darwin-legacy-cross:latest
+      TOOLCHAIN_IMAGE: ghcr.io/doctashay/darwin-legacy-cross:static-curl-20260622
 
     steps:
       - name: Check out repository
@@ -128,7 +128,7 @@ jobs:
     runs-on: ubuntu-24.04
     needs: build
     env:
-      TOOLCHAIN_IMAGE: ghcr.io/doctashay/darwin-legacy-cross:latest
+      TOOLCHAIN_IMAGE: ghcr.io/doctashay/darwin-legacy-cross:static-curl-20260622
 
     steps:
       - name: Check out repository
@@ -143,7 +143,20 @@ jobs:
         run: docker pull "$TOOLCHAIN_IMAGE"
 
       - name: Verify toolchain image
-        run: docker run --rm "$TOOLCHAIN_IMAGE" test-all-targets
+        run: |
+          docker run --rm "$TOOLCHAIN_IMAGE" bash -lc '
+            set -euo pipefail
+            . /opt/darwin-legacy-cross/bin/darwin-legacy-cross-env
+            test -n "$DARWIN_CA_BUNDLE"
+            for arch in PPC I386 X86_64 ARM64; do
+              eval "test -n \"\${DARWIN_${arch}_CURL_ROOT}\""
+              eval "test -n \"\${DARWIN_${arch}_OPENSSL_ROOT}\""
+              eval "test -n \"\${DARWIN_${arch}_ZLIB_ROOT}\""
+              eval "test -n \"\${DARWIN_${arch}_TDLIB_LIBRARY}\""
+              eval "test -n \"\${DARWIN_${arch}_FFMPEG_ROOT}\""
+            done
+            test-all-targets
+          '
 
       - name: Set app version
         env:

@@ -71,8 +71,14 @@ join_extra_cmake_args() {
   local prefix=$1
   local bundle_var="${prefix}_BUNDLE_LIBS"
   local extra_var="${prefix}_FFMPEG_EXTRA_LIBS"
+  local curl_var="${prefix}_CURL_ROOT"
+  local openssl_var="${prefix}_OPENSSL_ROOT"
+  local zlib_var="${prefix}_ZLIB_ROOT"
   cmake_bundle_libs="${!bundle_var:-}"
   cmake_ffmpeg_extra_libs="${!extra_var:-}"
+  cmake_curl_root="${!curl_var:-}"
+  cmake_openssl_root="${!openssl_var:-}"
+  cmake_zlib_root="${!zlib_var:-}"
 }
 
 build_slice() {
@@ -106,7 +112,11 @@ build_slice() {
       -DTELEGRAM_PPC_FFMPEG_LINKAGE="$TELEGRAM_PPC_FFMPEG_LINKAGE" \
       -DTELEGRAM_PPC_FFMPEG_EXTRA_LIBS="$cmake_ffmpeg_extra_libs" \
       -DTELEGRAM_PPC_TDLIB_LIBRARY="$tdlib" \
+      -DTELEGRAM_PPC_CURL_ROOT="$cmake_curl_root" \
+      -DTELEGRAM_PPC_OPENSSL_ROOT="$cmake_openssl_root" \
+      -DTELEGRAM_PPC_ZLIB_ROOT="$cmake_zlib_root" \
       -DTELEGRAM_PPC_BUNDLE_LIBS="$cmake_bundle_libs" \
+      -DTELEGRAM_PPC_CA_BUNDLE="${TELEGRAM_PPC_CA_BUNDLE:-}" \
       -DTELEGRAM_PPC_INSTALL_NAME_TOOL="$TELEGRAM_PPC_INSTALL_NAME_TOOL"
     )
     if [ -n "${TELEGRAM_PPC_CMAKE_ARGS:-}" ]; then
@@ -244,22 +254,34 @@ if [ "$skip_build" -eq 0 ]; then
     require_file TELEGRAM_PPC_PPC_CXX
     require_file TELEGRAM_PPC_PPC_TDLIB_LIBRARY
     require_file TELEGRAM_PPC_PPC_FFMPEG_ROOT
+    require_file TELEGRAM_PPC_PPC_CURL_ROOT
+    require_file TELEGRAM_PPC_PPC_OPENSSL_ROOT
+    require_file TELEGRAM_PPC_PPC_ZLIB_ROOT
   fi
   if [ "$target_arch" = all ] || [ "$target_arch" = i386 ]; then
     require_file TELEGRAM_PPC_I386_CXX
     require_file TELEGRAM_PPC_I386_TDLIB_LIBRARY
     require_file TELEGRAM_PPC_I386_FFMPEG_ROOT
+    require_file TELEGRAM_PPC_I386_CURL_ROOT
+    require_file TELEGRAM_PPC_I386_OPENSSL_ROOT
+    require_file TELEGRAM_PPC_I386_ZLIB_ROOT
   fi
   if [ "$target_arch" = all ] || [ "$target_arch" = x86_64 ]; then
     require_file TELEGRAM_PPC_X86_64_CXX
     require_file TELEGRAM_PPC_X86_64_TDLIB_LIBRARY
     require_file TELEGRAM_PPC_X86_64_FFMPEG_ROOT
+    require_file TELEGRAM_PPC_X86_64_CURL_ROOT
+    require_file TELEGRAM_PPC_X86_64_OPENSSL_ROOT
+    require_file TELEGRAM_PPC_X86_64_ZLIB_ROOT
   fi
   if [ "$target_arch" = all ] || [ "$target_arch" = arm64 ]; then
     require_file TELEGRAM_PPC_ARM64_CXX
     require_file TELEGRAM_PPC_ARM64_SDK_ROOT
     require_file TELEGRAM_PPC_ARM64_TDLIB_LIBRARY
     require_file TELEGRAM_PPC_ARM64_FFMPEG_ROOT
+    require_file TELEGRAM_PPC_ARM64_CURL_ROOT
+    require_file TELEGRAM_PPC_ARM64_OPENSSL_ROOT
+    require_file TELEGRAM_PPC_ARM64_ZLIB_ROOT
   fi
 fi
 

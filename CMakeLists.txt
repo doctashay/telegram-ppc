@@ -13,6 +13,11 @@ set_property(CACHE TELEGRAM_PPC_FFMPEG_LINKAGE PROPERTY STRINGS shared static)
 set(TELEGRAM_PPC_FFMPEG_EXTRA_LIBS "" CACHE STRING "Semicolon-separated libraries required by a static FFmpeg build")
 set(TELEGRAM_PPC_BUNDLE_LIBS "" CACHE STRING "Semicolon-separated dylibs to copy into Contents/Frameworks")
 set(TELEGRAM_PPC_TDLIB_LIBRARY "" CACHE FILEPATH "Optional TDLib dylib override, copied as libtdjson.dylib")
+set(TELEGRAM_PPC_CURL_ROOT "" CACHE PATH "Optional static libcurl prefix containing include and lib directories")
+set(TELEGRAM_PPC_CURL_LIBRARY "" CACHE FILEPATH "Optional static libcurl archive override")
+set(TELEGRAM_PPC_OPENSSL_ROOT "" CACHE PATH "Optional OpenSSL prefix used for static libcurl dependencies")
+set(TELEGRAM_PPC_ZLIB_ROOT "" CACHE PATH "Optional zlib prefix used for static libcurl dependencies")
+set(TELEGRAM_PPC_CA_BUNDLE "" CACHE FILEPATH "CA certificate bundle copied to Contents/Resources/cacert.pem")
 set(TELEGRAM_PPC_INSTALL_NAME_TOOL "" CACHE FILEPATH "Optional install_name_tool path for bundle load-command fixups")
 set(TELEGRAM_PPC_VERSION "0.2.1" CACHE STRING "CFBundleShortVersionString value")
 set(TELEGRAM_PPC_BUILD_NUMBER "0" CACHE STRING "CFBundleVersion value")
@@ -118,8 +123,93 @@ find_library(PPCVOIP_LIBRARY
   HINTS ${TELEGRAM_PPC_LIBRARY_HINTS}
 )
 
+set(TELEGRAM_PPC_CURL_INCLUDE_HINTS ${TELEGRAM_PPC_INCLUDE_HINTS})
+set(TELEGRAM_PPC_CURL_LIBRARY_HINTS ${TELEGRAM_PPC_LIBRARY_HINTS})
+if(TELEGRAM_PPC_CURL_ROOT)
+  list(PREPEND TELEGRAM_PPC_CURL_INCLUDE_HINTS "${TELEGRAM_PPC_CURL_ROOT}/include")
+  list(PREPEND TELEGRAM_PPC_CURL_LIBRARY_HINTS "${TELEGRAM_PPC_CURL_ROOT}/lib")
+endif()
+
+find_path(CURL_INCLUDE_DIR
+  NAMES curl/curl.h
+  HINTS ${TELEGRAM_PPC_CURL_INCLUDE_HINTS}
+  REQUIRED
+)
+
+if(TELEGRAM_PPC_CURL_LIBRARY)
+  if(NOT EXISTS "${TELEGRAM_PPC_CURL_LIBRARY}")
+    message(FATAL_ERROR "TELEGRAM_PPC_CURL_LIBRARY does not exist: ${TELEGRAM_PPC_CURL_LIBRARY}")
+  endif()
+  set(CURL_LIBRARY "${TELEGRAM_PPC_CURL_LIBRARY}")
+elseif(TELEGRAM_PPC_CURL_ROOT AND EXISTS "${TELEGRAM_PPC_CURL_ROOT}/lib/libcurl.a")
+  set(CURL_LIBRARY "${TELEGRAM_PPC_CURL_ROOT}/lib/libcurl.a")
+else()
+  find_library(CURL_LIBRARY
+    NAMES libcurl.a curl
+    HINTS ${TELEGRAM_PPC_CURL_LIBRARY_HINTS}
+    REQUIRED
+  )
+endif()
+
+set(TELEGRAM_PPC_OPENSSL_LIBRARY_HINTS ${TELEGRAM_PPC_LIBRARY_HINTS})
+if(TELEGRAM_PPC_OPENSSL_ROOT)
+  list(PREPEND TELEGRAM_PPC_OPENSSL_LIBRARY_HINTS "${TELEGRAM_PPC_OPENSSL_ROOT}/lib")
+elseif(EXISTS "/opt/local/libexec/openssl3/lib")
+  list(PREPEND TELEGRAM_PPC_OPENSSL_LIBRARY_HINTS "/opt/local/libexec/openssl3/lib")
+endif()
+
+set(TELEGRAM_PPC_ZLIB_LIBRARY_HINTS ${TELEGRAM_PPC_LIBRARY_HINTS})
+if(TELEGRAM_PPC_ZLIB_ROOT)
+  list(PREPEND TELEGRAM_PPC_ZLIB_LIBRARY_HINTS "${TELEGRAM_PPC_ZLIB_ROOT}/lib")
+endif()
+
+find_library(OPENSSL_SSL_LIBRARY
+  NAMES libssl.a ssl
+  HINTS ${TELEGRAM_PPC_OPENSSL_LIBRARY_HINTS}
+  REQUIRED
+)
+find_library(OPENSSL_CRYPTO_LIBRARY
+  NAMES libcrypto.a crypto
+  HINTS ${TELEGRAM_PPC_OPENSSL_LIBRARY_HINTS}
+  REQUIRED
+)
+find_library(ZLIB_LIBRARY
+  NAMES libz.a z
+  HINTS ${TELEGRAM_PPC_ZLIB_LIBRARY_HINTS}
+  REQUIRED
+)
+
+if(TELEGRAM_PPC_CA_BUNDLE)
+  if(NOT EXISTS "${TELEGRAM_PPC_CA_BUNDLE}")
+    message(FATAL_ERROR "TELEGRAM_PPC_CA_BUNDLE does not exist: ${TELEGRAM_PPC_CA_BUNDLE}")
+  endif()
+else()
+  find_file(TELEGRAM_PPC_CA_BUNDLE
+    NAMES
+      curl-ca-bundle.crt
+      ca-certificates.crt
+      cert.pem
+    PATHS
+      "/opt/local/share/curl"
+      "/etc/ssl/certs"
+      "/etc/ssl"
+      "/usr/local/etc/openssl@3"
+      "/usr/local/etc/openssl"
+      "/opt/homebrew/etc/openssl@3"
+      "/opt/homebrew/etc/openssl"
+    NO_DEFAULT_PATH
+  )
+endif()
+
+if(NOT TELEGRAM_PPC_CA_BUNDLE)
+  message(FATAL_ERROR "A CA certificate bundle is required. Pass -DTELEGRAM_PPC_CA_BUNDLE=/path/to/cacert.pem.")
+endif()
+
 find_library(COCOA_FRAMEWORK Cocoa REQUIRED)
 find_library(OPENGL_FRAMEWORK OpenGL REQUIRED)
+find_library(COREFOUNDATION_FRAMEWORK CoreFoundation REQUIRED)
+find_library(CORESERVICES_FRAMEWORK CoreServices REQUIRED)
+find_library(SYSTEMCONFIGURATION_FRAMEWORK SystemConfiguration REQUIRED)
 
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/TelegramCredentials.h")
   message(FATAL_ERROR
@@ -144,6 +234,7 @@ set(TELEGRAM_PPC_SOURCES
   Sources/MessageContent.mm
   Sources/TelegramBridge.mm
   Sources/OSCompat.mm
+  Sources/UpdateChecker.mm
   Sources/VideoPlayerView.mm
 )
 
@@ -160,6 +251,7 @@ set(TELEGRAM_PPC_HEADERS
   Sources/MessageContent.h
   Sources/TelegramBridge.h
   Sources/OSCompat.h
+  Sources/UpdateChecker.h
   Sources/VideoPlayerView.h
 )
 
@@ -202,6 +294,7 @@ set_target_properties(Sailplane PROPERTIES
 target_include_directories(Sailplane PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}"
   "${NLOHMANN_JSON_INCLUDE_DIR}"
+  "${CURL_INCLUDE_DIR}"
 )
 
 target_compile_options(Sailplane PRIVATE
@@ -277,10 +370,18 @@ target_link_libraries(Sailplane PRIVATE
   "${OPENGL_FRAMEWORK}"
   dl
   "${TELEGRAM_PPC_FFMPEG_TARGET}"
+  "${CURL_LIBRARY}"
+  "${OPENSSL_SSL_LIBRARY}"
+  "${OPENSSL_CRYPTO_LIBRARY}"
+  "${ZLIB_LIBRARY}"
+  "${COREFOUNDATION_FRAMEWORK}"
+  "${CORESERVICES_FRAMEWORK}"
+  "${SYSTEMCONFIGURATION_FRAMEWORK}"
 )
 
 add_custom_command(TARGET Sailplane POST_BUILD
   COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:Sailplane>/Frameworks"
+  COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${TELEGRAM_PPC_CA_BUNDLE}" "$<TARGET_BUNDLE_CONTENT_DIR:Sailplane>/Resources/cacert.pem"
   COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${TDJSON_LIBRARY}" "$<TARGET_BUNDLE_CONTENT_DIR:Sailplane>/Frameworks/libtdjson.dylib"
   VERBATIM
 )

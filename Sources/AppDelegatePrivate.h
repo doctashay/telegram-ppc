@@ -37,6 +37,8 @@
 - (void)showAuthWindow;
 - (void)hideAuthWindow;
 - (void)showMainWindow;
+- (IBAction)checkForUpdates:(id)sender;
+- (IBAction)showAboutPanel:(id)sender;
 - (void)updateProfilePhoto;
 - (void)requestProfilePhotoDownload;
 - (void)updateMainLayout;

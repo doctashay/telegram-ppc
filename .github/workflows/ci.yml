@@ -11,6 +11,12 @@ on:
 
 permissions:
   contents: read
+  packages: read
+
+env:
+  TELEGRAM_PPC_JOBS: "2"
+  TELEGRAM_PPC_FFMPEG_LINKAGE: static
+  TELEGRAM_PPC_TOOLCHAIN_IMAGE: ghcr.io/doctashay/darwin-legacy-cross:static-curl-20260622
 
 jobs:
   hygiene:
@@ -39,6 +45,7 @@ jobs:
           bash -n scripts/ci/bootstrap-tdlib.sh
           bash -n scripts/ci/bootstrap-zlib.sh
           bash -n scripts/ci/check-repo.sh
+          bash -n scripts/ci/use-darwin-legacy-cross-env.sh
           bash -n scripts/ci/write-build-config.sh
           bash -n scripts/ci/verify-release-app.sh
 
@@ -74,6 +81,129 @@ jobs:
 
       - name: Verify CMake metadata is readable
         run: cmake --version
+
+  toolchain:
+    name: Darwin cross toolchain
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Log in to GitHub Container Registry
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Pull toolchain image
+        run: docker pull "$TELEGRAM_PPC_TOOLCHAIN_IMAGE"
+
+      - name: Verify toolchain image
+        run: |
+          docker run --rm "$TELEGRAM_PPC_TOOLCHAIN_IMAGE" bash -lc '
+            set -euo pipefail
+            . /opt/darwin-legacy-cross/bin/darwin-legacy-cross-env
+            test -n "$DARWIN_CA_BUNDLE"
+            for arch in PPC I386 X86_64 ARM64; do
+              eval "test -n \"\${DARWIN_${arch}_CURL_ROOT}\""
+              eval "test -n \"\${DARWIN_${arch}_OPENSSL_ROOT}\""
+              eval "test -n \"\${DARWIN_${arch}_ZLIB_ROOT}\""
+              eval "test -n \"\${DARWIN_${arch}_TDLIB_LIBRARY}\""
+              eval "test -n \"\${DARWIN_${arch}_FFMPEG_ROOT}\""
+            done
+            test-all-targets
+          '
+
+  cross-build:
+    name: Build ${{ matrix.arch }}
+    runs-on: ubuntu-24.04
+    needs:
+      - hygiene
+      - toolchain
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - ppc
+          - i386
+          - x86_64
+          - arm64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Log in to GitHub Container Registry
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Pull toolchain image
+        run: docker pull "$TELEGRAM_PPC_TOOLCHAIN_IMAGE"
+
+      - name: Prepare dummy credentials
+        run: cp TelegramCredentials.example.h TelegramCredentials.h
+
+      - name: Build ${{ matrix.arch }} app
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/work" \
+            -e TELEGRAM_PPC_JOBS \
+            -e TELEGRAM_PPC_FFMPEG_LINKAGE \
+            -e TELEGRAM_PPC_VERSION=0.2.1 \
+            -e TELEGRAM_PPC_BUILD_NUMBER="${{ github.run_number }}" \
+            "$TELEGRAM_PPC_TOOLCHAIN_IMAGE" \
+            bash -lc '
+              set -euo pipefail
+              cd /work
+              . /opt/darwin-legacy-cross/bin/darwin-legacy-cross-env
+              export TELEGRAM_PPC_BUILD_ROOT=/work/build
+              export TELEGRAM_PPC_DIST_DIR=/work/dist
+              . scripts/ci/use-darwin-legacy-cross-env.sh
+              scripts/ci/write-build-config.sh local-build-config.ci.sh
+              scripts/build-universal.sh --config local-build-config.ci.sh --clean --arch "${{ matrix.arch }}" --skip-assemble
+            '
+          sudo chown -R "$USER:$USER" build local-build-config.ci.sh
+
+      - name: Verify ${{ matrix.arch }} app
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/work" \
+            "$TELEGRAM_PPC_TOOLCHAIN_IMAGE" \
+            bash -lc '
+              set -euo pipefail
+              cd /work
+              . /opt/darwin-legacy-cross/bin/darwin-legacy-cross-env
+              app="build/build-${{ matrix.arch }}/Sailplane.app"
+              binary="$app/Contents/MacOS/Sailplane"
+              frameworks="$app/Contents/Frameworks"
+              plist="$app/Contents/Info.plist"
+              test -x "$binary"
+              test -f "$frameworks/libtdjson.dylib"
+              test -f "$plist"
+              "$DARWIN_LIPO" "$binary" -verify_arch "${{ matrix.arch }}"
+              "$DARWIN_LIPO" "$frameworks/libtdjson.dylib" -verify_arch "${{ matrix.arch }}"
+              bad_loads="$(
+                {
+                  printf "%s\n" "$binary"
+                  find "$frameworks" -maxdepth 1 -type f -name "*.dylib"
+                } | while read -r target; do
+                  "$DARWIN_OTOOL" -L "$target" 2>/dev/null | awk "/^[[:space:]]/ {print \$1}" | grep -E "/opt/local|/home/|/mnt/|/tmp/" || true
+                done | sort -u
+              )"
+              if [ -n "$bad_loads" ]; then
+                echo "app contains non-relocatable load commands:" >&2
+                echo "$bad_loads" >&2
+                exit 1
+              fi
+            '
+
+      - name: Pack ${{ matrix.arch }} app
+        run: tar -czf "thin-${{ matrix.arch }}.tgz" -C "build/build-${{ matrix.arch }}" Sailplane.app
+
+      - name: Upload ${{ matrix.arch }} app
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-thin-app-${{ matrix.arch }}
+          path: thin-${{ matrix.arch }}.tgz
+          retention-days: 7
 
   apple-silicon:
     name: Apple Silicon macOS 26

@@ -364,6 +364,9 @@ target_compile_definitions(Sailplane PRIVATE
   JSON_HAS_EXPERIMENTAL_FILESYSTEM=0
   TELEGRAM_PPC_SYSTEM_VERSION="${TELEGRAM_PPC_MIN_SYSTEM_VERSION}"
 )
+if(TELEGRAM_PPC_MIN_SYSTEM_VERSION VERSION_LESS "10.5")
+  target_compile_definitions(Sailplane PRIVATE __DARWIN_UNIX03=0)
+endif()
 
 target_link_libraries(Sailplane PRIVATE
   "${COCOA_FRAMEWORK}"

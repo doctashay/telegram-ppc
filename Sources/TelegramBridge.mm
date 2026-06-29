@@ -29,7 +29,7 @@ static NSString *SailplaneApplicationSupportPath() {
   BOOL oldIsDir = NO;
   if (![fm fileExistsAtPath:root isDirectory:&rootIsDir] &&
       [fm fileExistsAtPath:oldRoot isDirectory:&oldIsDir] && oldIsDir) {
-    [fm moveItemAtPath:oldRoot toPath:root error:nil];
+    MovePathReplacingDestination(oldRoot, root);
   }
   return root;
 }
@@ -53,10 +53,10 @@ static NSString *SailplaneApplicationSupportPath() {
 - (BOOL)loadTDLib {
   NSBundle *bundle = [NSBundle mainBundle];
   NSMutableArray *cands = [NSMutableArray array];
-  NSString *bl = [[bundle privateFrameworksPath] stringByAppendingPathComponent:@"libtdjson.dylib"];
-  if (bl) [cands addObject:bl];
   NSString *ep = [[[NSProcessInfo processInfo] environment] objectForKey:@"TDJSON_PATH"];
   if ([ep length]) [cands addObject:ep];
+  NSString *bl = [[bundle privateFrameworksPath] stringByAppendingPathComponent:@"libtdjson.dylib"];
+  if (bl) [cands addObject:bl];
   for (NSUInteger i = 0; i < [cands count]; i++) {
     NSString *candidate = [cands objectAtIndex:i];
     BridgeLog(@"Trying TDLib candidate %@", candidate);

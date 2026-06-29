@@ -157,6 +157,9 @@ jobs:
               export TELEGRAM_PPC_BUILD_ROOT=/work/build
               export TELEGRAM_PPC_DIST_DIR=/work/dist
               . scripts/ci/use-darwin-legacy-cross-env.sh
+              if [ "${{ matrix.arch }}" = ppc ]; then
+                . scripts/ci/use-vendored-ppcports-tdlib.sh
+              fi
               scripts/ci/write-build-config.sh local-build-config.ci.sh
               scripts/build-universal.sh --config local-build-config.ci.sh --clean --arch "${{ matrix.arch }}" --skip-assemble
             '
@@ -179,7 +182,12 @@ jobs:
               test -f "$frameworks/libtdjson.dylib"
               test -f "$plist"
               "$DARWIN_LIPO" "$binary" -verify_arch "${{ matrix.arch }}"
-              "$DARWIN_LIPO" "$frameworks/libtdjson.dylib" -verify_arch "${{ matrix.arch }}"
+              if [ "${{ matrix.arch }}" = ppc ]; then
+                "$DARWIN_LIPO" "$frameworks/libtdjson.dylib" -verify_arch ppc ||
+                  "$DARWIN_LIPO" "$frameworks/libtdjson.dylib" -verify_arch ppc7400
+              else
+                "$DARWIN_LIPO" "$frameworks/libtdjson.dylib" -verify_arch "${{ matrix.arch }}"
+              fi
               bad_loads="$(
                 {
                   printf "%s\n" "$binary"

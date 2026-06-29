@@ -22,6 +22,7 @@ build_one() {
   local name=$1 target=$2 cc=$3 sdk_root=$4 deployment=$5
   local prefix="$TELEGRAM_PPC_CI_ROOT/deps/$name/openssl"
   local build_dir="$TELEGRAM_PPC_CI_ROOT/build/openssl-$name"
+  local legacy_cflags=()
 
   if [ -f "$prefix/lib/libssl.a" ] && [ -f "$prefix/lib/libcrypto.a" ]; then
     return
@@ -34,14 +35,17 @@ build_one() {
   (
     cd "$build_dir"
     export CC="$cc"
+    if [ "$deployment" = "10.4" ]; then
+      legacy_cflags=(-D__DARWIN_UNIX03=0)
+    fi
     ./Configure "$target" \
       no-shared \
       no-tests \
-      no-apps \
       --prefix="$prefix" \
       --openssldir="$prefix/ssl" \
       -isysroot "$sdk_root" \
-      -mmacosx-version-min="$deployment"
+      -mmacosx-version-min="$deployment" \
+      "${legacy_cflags[@]}"
     make -j"${TELEGRAM_PPC_JOBS:-2}"
     make install_sw
   )

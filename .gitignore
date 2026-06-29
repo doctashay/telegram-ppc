@@ -4,6 +4,7 @@ build-*/
 dist/
 docker/
 local-build-config*.sh
+.tdlib-ci/
 standalone-tmp/
 *.dmg
 *.tgz

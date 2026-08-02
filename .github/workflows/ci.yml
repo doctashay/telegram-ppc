@@ -249,16 +249,18 @@ jobs:
           otool="$(xcrun --find otool)"
           lipo="$(xcrun --find lipo)"
 
-          {
-            printf 'export TELEGRAM_PPC_BUILD_ROOT=%q\n' "$GITHUB_WORKSPACE/build"
-            printf 'export TELEGRAM_PPC_DIST_DIR=%q\n' "$GITHUB_WORKSPACE/dist"
-            printf 'export TELEGRAM_PPC_SDK_ROOT=%q\n' "$sdk_root"
-            printf 'export TELEGRAM_PPC_INSTALL_NAME_TOOL=%q\n' "$install_name_tool"
-            printf 'export TELEGRAM_PPC_OTOOL=%q\n' "$otool"
-            printf 'export TELEGRAM_PPC_LIPO=%q\n' "$lipo"
-            printf 'export TELEGRAM_PPC_VERSION=%q\n' "0.2.1"
-            printf 'export TELEGRAM_PPC_BUILD_NUMBER=%q\n' "${{ github.run_number }}"
-          } > local-build-config.ci.sh
+          export TELEGRAM_PPC_BUILD_ROOT="$GITHUB_WORKSPACE/build"
+          export TELEGRAM_PPC_DIST_DIR="$GITHUB_WORKSPACE/dist"
+          export TELEGRAM_PPC_SDK_ROOT="$sdk_root"
+          export TELEGRAM_PPC_INSTALL_NAME_TOOL="$install_name_tool"
+          export TELEGRAM_PPC_OTOOL="$otool"
+          export TELEGRAM_PPC_LIPO="$lipo"
+          export TELEGRAM_PPC_VERSION="0.2.1"
+          export TELEGRAM_PPC_BUILD_NUMBER="${{ github.run_number }}"
+
+          # The config writer includes every optional per-architecture variable.
+          # build-universal.sh expands those variables even in --skip-build mode.
+          scripts/ci/write-build-config.sh local-build-config.ci.sh
 
           . ./local-build-config.ci.sh
           scripts/build-universal.sh --config local-build-config.ci.sh --skip-build

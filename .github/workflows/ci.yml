@@ -214,15 +214,23 @@ jobs:
           path: thin-${{ matrix.arch }}.tgz
           retention-days: 7
 
-  universal-dmg:
-    name: Universal DMG
-    runs-on: macos-latest
+  universal-assemble:
+    name: Assemble universal app
+    runs-on: ubuntu-24.04
     needs:
       - cross-build
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v5
+
+      - name: Log in to GitHub Container Registry
+        env:
+          GHCR_TOKEN: ${{ secrets.GHCR_PAT || github.token }}
+        run: printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Pull toolchain image
+        run: docker pull "$TELEGRAM_PPC_TOOLCHAIN_IMAGE"
 
       - name: Download thin apps
         uses: actions/download-artifact@v8
@@ -244,38 +252,63 @@ jobs:
       - name: Assemble and verify universal app
         run: |
           set -euo pipefail
-          sdk_root="$(xcrun --sdk macosx --show-sdk-path)"
-          install_name_tool="$(xcrun --find install_name_tool)"
-          otool="$(xcrun --find otool)"
-          lipo="$(xcrun --find lipo)"
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/work" \
+            -e TELEGRAM_PPC_JOBS \
+            -e TELEGRAM_PPC_FFMPEG_LINKAGE \
+            -e TELEGRAM_PPC_VERSION=0.2.1 \
+            -e TELEGRAM_PPC_BUILD_NUMBER="${{ github.run_number }}" \
+            "$TELEGRAM_PPC_TOOLCHAIN_IMAGE" \
+            bash -lc '
+              set -euo pipefail
+              cd /work
+              . /opt/darwin-legacy-cross/bin/darwin-legacy-cross-env
+              export TELEGRAM_PPC_BUILD_ROOT=/work/build
+              export TELEGRAM_PPC_DIST_DIR=/work/dist
+              . scripts/ci/use-darwin-legacy-cross-env.sh
+              scripts/ci/write-build-config.sh local-build-config.ci.sh
+              scripts/build-universal.sh --config local-build-config.ci.sh --skip-build
+              scripts/ci/verify-release-app.sh dist/Sailplane.app
+              "$TELEGRAM_PPC_LIPO" -info dist/Sailplane.app/Contents/MacOS/Sailplane
+              "$TELEGRAM_PPC_LIPO" -info dist/Sailplane.app/Contents/Frameworks/libtdjson.dylib
+            '
+          sudo chown -R "$USER:$USER" build dist local-build-config.ci.sh
 
-          export TELEGRAM_PPC_BUILD_ROOT="$GITHUB_WORKSPACE/build"
-          export TELEGRAM_PPC_DIST_DIR="$GITHUB_WORKSPACE/dist"
-          export TELEGRAM_PPC_SDK_ROOT="$sdk_root"
-          export TELEGRAM_PPC_INSTALL_NAME_TOOL="$install_name_tool"
-          export TELEGRAM_PPC_OTOOL="$otool"
-          export TELEGRAM_PPC_LIPO="$lipo"
-          export TELEGRAM_PPC_VERSION="0.2.1"
-          export TELEGRAM_PPC_BUILD_NUMBER="${{ github.run_number }}"
+      - name: Pack universal app for DMG job
+        run: |
+          mkdir -p universal-staging
+          tar -czf universal-staging/Sailplane-universal-app.tgz -C dist Sailplane.app
 
-          # The config writer includes every optional per-architecture variable.
-          # build-universal.sh expands those variables even in --skip-build mode.
-          scripts/ci/write-build-config.sh local-build-config.ci.sh
+      - name: Upload universal app staging
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-universal-app-staging
+          path: universal-staging/Sailplane-universal-app.tgz
+          if-no-files-found: error
+          retention-days: 1
 
-          . ./local-build-config.ci.sh
-          scripts/build-universal.sh --config local-build-config.ci.sh --skip-build
-          scripts/ci/verify-release-app.sh dist/Sailplane.app
-          "$TELEGRAM_PPC_LIPO" -info dist/Sailplane.app/Contents/MacOS/Sailplane
-          "$TELEGRAM_PPC_LIPO" -info dist/Sailplane.app/Contents/Frameworks/libtdjson.dylib
+  universal-dmg:
+    name: Universal DMG
+    runs-on: macos-latest
+    needs:
+      - universal-assemble
+
+    steps:
+      - name: Download universal app staging
+        uses: actions/download-artifact@v8
+        with:
+          name: ci-universal-app-staging
+          path: universal-staging
 
       - name: Create and verify universal DMG
         run: |
           set -euo pipefail
           dmg_name="Sailplane-0.2.1-ci.${{ github.run_number }}-universal.dmg"
 
-          rm -rf dmg-root dmg-mount artifacts
-          mkdir -p dmg-root dmg-mount artifacts
-          cp -a dist/Sailplane.app dmg-root/
+          rm -rf dmg-work dmg-root dmg-mount artifacts
+          mkdir -p dmg-work dmg-root dmg-mount artifacts
+          tar -xzf universal-staging/Sailplane-universal-app.tgz -C dmg-work
+          cp -a dmg-work/Sailplane.app dmg-root/
 
           hdiutil create \
             -volname Sailplane \

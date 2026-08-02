@@ -340,8 +340,10 @@
   NSDictionary *c = [chatsById_ objectForKey:cid];
   [self setStatusText:[NSString stringWithFormat:@"Loading %@", StringOrEmpty([c objectForKey:@"title"])]];
   [bridge_ openChat:selectedChatId_];
-  long long lastMessageId = LongLongValue([[c objectForKey:@"last_message"] objectForKey:@"id"]);
-  [bridge_ loadChatHistory:selectedChatId_ fromMessageId:lastMessageId];
+  // A chat list's last_message can be stale while TDLib is synchronizing. Zero
+  // explicitly requests the newest server-side history instead of anchoring the
+  // result behind that stale message.
+  [bridge_ loadChatHistory:selectedChatId_ fromMessageId:0];
   // Immediately clear unread badge for selected chat
   NSMutableDictionary *selChat = [chatsById_ objectForKey:cid];
   [selChat setObject:[NSNumber numberWithInt:0] forKey:@"unread_count"];

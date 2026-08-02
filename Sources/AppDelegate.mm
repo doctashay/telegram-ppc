@@ -148,9 +148,13 @@
     pendingDownloads_ = [[NSMutableSet alloc] init];
     expandedMessages_ = [[NSMutableSet alloc] init];
     chatFilter_ = nil;
-    selectedChatId_ = 0; authRequestInFlight_ = NO; meUserId_ = 0;
+    selectedChatId_ = 0; authRequestInFlight_ = NO;
+    authProxyConfigurationInFlight_ = NO; authProxyCheckOnly_ = NO; pendingAuthProxyId_ = 0; pendingAuthPhoneNumber_ = nil;
+    verifiedAuthProxySettings_ = nil;
+    startupAuthorizationRecovery_ = YES; resettingInterruptedAuthorization_ = NO; meUserId_ = 0;
     expectingGetMe_ = NO; tdlibConfigured_ = NO; meUser_ = nil; profilePhotoFileId_ = 0; profilePhotoPath_ = nil;
     chatRefreshScheduled_ = NO; messageRefreshScheduled_ = NO;
+    logoutInProgress_ = NO;
     pendingMessageHeightInvalidation_ = YES; lastMessageTableWidth_ = 0.0;
     authWindow_ = nil; mainWindow_ = nil;
   }
@@ -164,8 +168,11 @@
   [usersById_ release]; [filePaths_ release]; [pendingDownloads_ release];
   [expandedMessages_ release];
   [chatFilter_ release];
+  [pendingAuthPhoneNumber_ release];
+  [verifiedAuthProxySettings_ release];
   [meUser_ release]; [profilePhotoPath_ release];
-  authWindow_ = nil; mainWindow_ = nil;
+  [authWindow_ setDelegate:nil]; [authWindow_ release]; authWindow_ = nil;
+  [mainWindow_ setDelegate:nil]; [mainWindow_ release]; mainWindow_ = nil;
   [super dealloc];
 }
 
@@ -332,6 +339,7 @@
 
   NSRect frame = NSMakeRect(100, 100, 1100, 720);
   mainWindow_ = [[NSWindow alloc] initWithContentRect:frame styleMask:(NSTitledWindowMask | NSClosableWindowMask | NSMiniaturizableWindowMask | NSResizableWindowMask) backing:NSBackingStoreBuffered defer:NO];
+  [mainWindow_ setReleasedWhenClosed:NO];
   [mainWindow_ setTitle:@"Sailplane"];
   [mainWindow_ setDelegate:self];
 
@@ -590,28 +598,50 @@
 
 - (void)logout:(id)sender {
   (void)sender;
+  if (logoutInProgress_) return;
+  logoutInProgress_ = YES;
   [self stopInlineVideoPlayer];
   [[NSNotificationCenter defaultCenter] removeObserver:self name:NSViewBoundsDidChangeNotification object:nil];
   [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(performScheduledChatRefresh) object:nil];
   [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(performScheduledMessageRefresh) object:nil];
   json p = {{"@type", "logOut"}};
   [bridge_ sendJSON:p];
-  // Close main window
+  [self showAuthWindow];
+  [self configureAuthWindowForState:@"authorizationStateWaitPhoneNumber"];
+  [self setAuthBusy:YES message:@"Logging out..."];
+  [self resetLocalSessionStateForLogout];
+  [self performSelector:@selector(hideMainWindowAfterLogout) withObject:nil afterDelay:0.0];
+}
+
+- (void)resetLocalSessionStateForLogout {
+  [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(proxyValidationTimedOut) object:nil];
+  authProxyConfigurationInFlight_ = NO; pendingAuthProxyId_ = 0;
+  authProxyCheckOnly_ = NO;
+  [pendingAuthPhoneNumber_ release]; pendingAuthPhoneNumber_ = nil;
+  [verifiedAuthProxySettings_ release]; verifiedAuthProxySettings_ = nil;
+  [chatFilter_ release]; chatFilter_ = nil;
+  [chatIds_ removeAllObjects]; [chatsById_ removeAllObjects]; [messagesByChatId_ removeAllObjects];
+  [messageCellCache_ removeAllObjects];
+  [usersById_ removeAllObjects]; [filePaths_ removeAllObjects]; [pendingDownloads_ removeAllObjects];
+  selectedChatId_ = 0; meUserId_ = 0; expectingGetMe_ = NO;
+  chatRefreshScheduled_ = NO; messageRefreshScheduled_ = NO;
+  pendingMessageHeightInvalidation_ = YES; lastMessageTableWidth_ = 0.0;
+  [meUser_ release]; meUser_ = nil;
+  [profilePhotoPath_ release]; profilePhotoPath_ = nil; profilePhotoFileId_ = 0;
+  [self clearCallState];
+}
+
+- (void)hideMainWindowAfterLogout {
   if (mainWindow_) { [mainWindow_ orderOut:nil]; [mainWindow_ release]; mainWindow_ = nil; }
   statusLabel_ = nil; statusBar_ = nil; mainSplitView_ = nil; conversationView_ = nil; chatScrollView_ = nil; messageScrollView_ = nil; composeBar_ = nil;
   chatTable_ = nil; messageTable_ = nil; composeField_ = nil; sendButton_ = nil; attachButton_ = nil; profileButton_ = nil; searchField_ = nil;
   replyBarLabel_ = nil; cancelReplyBtn_ = nil; replyBarContainer_ = nil;
   callButton_ = nil; callBar_ = nil; callBarLabel_ = nil; callAcceptBtn_ = nil; callDeclineBtn_ = nil; callEndBtn_ = nil;
-  [chatFilter_ release]; chatFilter_ = nil;
-  [chatIds_ removeAllObjects]; [chatsById_ removeAllObjects]; [messagesByChatId_ removeAllObjects];
-  [messageCellCache_ removeAllObjects];
-  [usersById_ removeAllObjects]; [filePaths_ removeAllObjects]; [pendingDownloads_ removeAllObjects];
-  selectedChatId_ = 0; meUserId_ = 0; expectingGetMe_ = NO; tdlibConfigured_ = NO;
-  chatRefreshScheduled_ = NO; messageRefreshScheduled_ = NO;
-  pendingMessageHeightInvalidation_ = YES; lastMessageTableWidth_ = 0.0;
-  [meUser_ release]; meUser_ = nil;
-  [profilePhotoPath_ release]; profilePhotoPath_ = nil; profilePhotoFileId_ = 0;
-  [self setStatusText:@"Logged out. Waiting for new login..."];
+  if (!authWindow_) [self showAuthWindow];
+  [self configureAuthWindowForState:@"authorizationStateWaitPhoneNumber"];
+  [NSApp activateIgnoringOtherApps:YES];
+  [authWindow_ makeKeyAndOrderFront:nil];
+  [authWindow_ orderFrontRegardless];
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)note {
@@ -636,6 +666,10 @@
   }
 
   bridge_ = [[TelegramBridge alloc] initWithDelegate:self];
+  // Always give startup failures somewhere visible to report themselves. Without
+  // this, a TDLib load/compatibility failure leaves only the application menus.
+  [self showAuthWindow];
+  [self setAuthBusy:YES message:@"Starting Telegram..."];
   [bridge_ start];
   [NSTimer scheduledTimerWithTimeInterval:0.10 target:bridge_ selector:@selector(poll) userInfo:nil repeats:YES];
   [bridge_ poll];
@@ -644,7 +678,37 @@
 }
 
 - (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)s {
-  (void)s; return YES;
+  (void)s;
+  return NO;
+}
+
+- (void)restorePrimaryWindow {
+  if (!bridge_) return;
+  NSString *state = [bridge_ authorizationState];
+  if ([state isEqualToString:@"authorizationStateReady"]) {
+    [self showMainWindow];
+    if ([mainWindow_ isMiniaturized]) [mainWindow_ deminiaturize:nil];
+    [mainWindow_ makeKeyAndOrderFront:nil];
+  } else {
+    [self showAuthWindow];
+    if ([authWindow_ isMiniaturized]) [authWindow_ deminiaturize:nil];
+    [authWindow_ makeKeyAndOrderFront:nil];
+  }
+  [NSApp activateIgnoringOtherApps:YES];
+}
+
+- (BOOL)applicationShouldHandleReopen:(NSApplication *)application hasVisibleWindows:(BOOL)hasVisibleWindows {
+  (void)application; (void)hasVisibleWindows;
+  [self restorePrimaryWindow];
+  return YES;
+}
+
+- (void)applicationDidBecomeActive:(NSNotification *)notification {
+  (void)notification;
+  if (!bridge_) return;
+  BOOL authVisible = authWindow_ && [authWindow_ isVisible];
+  BOOL mainVisible = mainWindow_ && [mainWindow_ isVisible];
+  if (!authVisible && !mainVisible) [self restorePrimaryWindow];
 }
 
 - (IBAction)sendCurrentMessage:(id)sender {

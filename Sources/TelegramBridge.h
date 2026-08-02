@@ -19,6 +19,8 @@
 - (id)initWithDelegate:(AppDelegate *)delegate;
 - (BOOL)loadTDLib;
 - (void)start;
+- (void)restartClientForLogin;
+- (void)discardInterruptedAuthorization;
 - (void)poll;
 - (void)submitAuthInput:(NSString *)input;
 - (void)updateAuthorizationState:(NSString *)state;
@@ -38,4 +40,5 @@
 - (void)downloadFile:(long long)fileId priority:(int)priority;
 - (void)sendJSON:(const json &)payload;
 - (NSString *)authorizationState;
+- (BOOL)isReady;
 @end

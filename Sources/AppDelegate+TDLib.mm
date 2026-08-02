@@ -153,17 +153,41 @@
 }
 
 - (void)appendMessage:(NSDictionary *)msg toChatId:(NSNumber *)cid {
-  if (!cid) return;
+  if (!cid || !msg) return;
   NSMutableArray *ms = [messagesByChatId_ objectForKey:cid];
   if (!ms) { ms = [NSMutableArray array]; [messagesByChatId_ setObject:ms forKey:cid]; }
-  [ms addObject:msg];
+  long long messageId = LongLongValue([msg objectForKey:@"id"]);
+  BOOL replaced = NO;
+  for (NSUInteger i = 0; i < [ms count]; i++) {
+    if (LongLongValue([[ms objectAtIndex:i] objectForKey:@"id"]) == messageId) {
+      [ms replaceObjectAtIndex:i withObject:msg];
+      replaced = YES;
+      break;
+    }
+  }
+  if (!replaced) [ms addObject:msg];
+  [ms sortUsingFunction:CompareMessagesById context:NULL];
   [messageCellCache_ removeAllObjects];
   pendingMessageHeightInvalidation_ = YES;
 }
 
 - (void)replaceMessages:(NSArray *)msgs chatId:(NSNumber *)cid {
   if (!cid) return;
-  NSMutableArray *mm = [NSMutableArray arrayWithArray:msgs];
+  // History can arrive after updateNewMessage. Merge by ID so a history reply
+  // refreshes overlapping messages without deleting newer live updates.
+  NSMutableDictionary *messagesById = [NSMutableDictionary dictionary];
+  NSArray *cached = [messagesByChatId_ objectForKey:cid];
+  for (NSUInteger i = 0; i < [cached count]; i++) {
+    NSDictionary *message = [cached objectAtIndex:i];
+    NSNumber *messageId = [NSNumber numberWithLongLong:LongLongValue([message objectForKey:@"id"])];
+    [messagesById setObject:message forKey:messageId];
+  }
+  for (NSUInteger i = 0; i < [msgs count]; i++) {
+    NSDictionary *message = [msgs objectAtIndex:i];
+    NSNumber *messageId = [NSNumber numberWithLongLong:LongLongValue([message objectForKey:@"id"])];
+    [messagesById setObject:message forKey:messageId];
+  }
+  NSMutableArray *mm = [NSMutableArray arrayWithArray:[messagesById allValues]];
   [mm sortUsingFunction:CompareMessagesById context:NULL];
   [messagesByChatId_ setObject:mm forKey:cid];
   [messageCellCache_ removeAllObjects];
@@ -239,6 +263,8 @@
   if (!objPtr) return NO;
   const json &obj = *objPtr;
 
+  if ([self handleAuthProxyResponseJSON:objPtr]) return YES;
+
   if ([type isEqualToString:@"updateAuthorizationState"]) {
     NSString *st = @"";
     if (obj.contains("authorization_state") && obj["authorization_state"].is_object() && obj["authorization_state"].contains("@type"))
@@ -260,9 +286,17 @@
     return YES;
   }
   if ([type isEqualToString:@"updateConnectionState"]) {
+    if (authProxyConfigurationInFlight_) return YES;
     if (obj.contains("state") && obj["state"].is_object() && obj["state"].contains("@type")) {
       NSString *stt = NSStringFromStdString(obj["state"]["@type"].get<std::string>());
-      [self setStatusText:[self readableConnectionState:stt]];
+      NSString *status = [self readableConnectionState:stt];
+      BOOL loginProxyFeedbackVisible = authWindow_ &&
+        [[bridge_ authorizationState] isEqualToString:@"authorizationStateWaitPhoneNumber"];
+      if (loginProxyFeedbackVisible) {
+        if (mainWindow_ && statusLabel_) [statusLabel_ setStringValue:status];
+      } else {
+        [self setStatusText:status];
+      }
     }
     return YES;
   }
@@ -522,7 +556,16 @@
     if (obj.contains("message")) {
       NSDictionary *msg = (NSDictionary *)NSObjectFromJSON(obj["message"]);
       NSNumber *cid = [NSNumber numberWithLongLong:JSONLongLong(obj["message"]["chat_id"])];
-      if (msg) [self appendMessage:msg toChatId:cid];
+      if (msg) {
+        [self appendMessage:msg toChatId:cid];
+        NSMutableDictionary *chat = [chatsById_ objectForKey:cid];
+        long long currentLastId = LongLongValue([[chat objectForKey:@"last_message"] objectForKey:@"id"]);
+        long long newMessageId = LongLongValue([msg objectForKey:@"id"]);
+        if (chat && newMessageId >= currentLastId) {
+          [chat setObject:msg forKey:@"last_message"];
+          [chat setObject:MessagePreviewFromContent([msg objectForKey:@"content"]) forKey:@"preview"];
+        }
+      }
       if ([cid longLongValue] == selectedChatId_) { [self scheduleMessageRefresh]; [self requestFileDownloadForMessage:msg]; }
     }
     [self scheduleChatRefresh];

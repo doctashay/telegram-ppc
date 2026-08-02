@@ -93,6 +93,7 @@ static NSString *SailplaneTDLibApplicationVersion() {
 }
 
 - (NSString *)authorizationState { return authorizationState_; }
+- (BOOL)isReady { return tdSend_ != NULL && clientId_ != 0; }
 
 - (BOOL)loadTDLib {
   NSBundle *bundle = [NSBundle mainBundle];
@@ -178,6 +179,11 @@ static NSString *SailplaneTDLibApplicationVersion() {
   clientId_ = tdCreateClientId_();
   BridgeLog(@"Restarted TDLib client id %d", clientId_);
   [self updateAuthorizationState:@"authorizationStateWaitTdlibParameters"];
+}
+
+- (void)discardInterruptedAuthorization {
+  json request = {{"@type", "destroy"}};
+  [self sendJSON:request];
 }
 
 - (void)submitAuthInput:(NSString *)input {

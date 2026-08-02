@@ -10,7 +10,9 @@
  @private
   // Auth window
   NSWindow *authWindow_;
+  NSImageView *authIconView_;
   NSTextField *authTitleLabel_;
+  NSTextField *authSubtitleLabel_;
   NSTextField *authCountryLabel_;
   NSPopUpButton *authCountryPopup_;
   NSTextField *authPhoneLabel_;
@@ -19,6 +21,21 @@
   NSTextField *authCodeField_;
   NSButton *authSubmitBtn_;
   NSTextField *authStatusLabel_;
+  NSBox *authProxyBox_;
+  NSButton *authProxyEnabledBtn_;
+  NSButton *authProxyCheckBtn_;
+  NSTextField *authProxyTypeLabel_;
+  NSPopUpButton *authProxyTypePopup_;
+  NSTextField *authProxyHostLabel_;
+  NSTextField *authProxyHostField_;
+  NSTextField *authProxyPortLabel_;
+  NSTextField *authProxyPortField_;
+  NSTextField *authProxyUserField_;
+  NSTextField *authProxyPasswordField_;
+  NSTextField *authProxySecretField_;
+  NSTextField *authProxyUserLabel_;
+  NSTextField *authProxyPasswordLabel_;
+  NSTextField *authProxySecretLabel_;
 
   // Main window
   NSWindow *mainWindow_;
@@ -47,6 +64,13 @@
   int historyRetries_;
   TelegramBridge *bridge_;
   BOOL authRequestInFlight_;
+  BOOL authProxyConfigurationInFlight_;
+  BOOL authProxyCheckOnly_;
+  int pendingAuthProxyId_;
+  NSString *pendingAuthPhoneNumber_;
+  NSString *verifiedAuthProxySettings_;
+  BOOL startupAuthorizationRecovery_;
+  BOOL resettingInterruptedAuthorization_;
   long long meUserId_;
   NSMutableDictionary *usersById_;
   NSMutableDictionary *filePaths_;
@@ -55,6 +79,7 @@
   BOOL tdlibConfigured_;
   BOOL chatRefreshScheduled_;
   BOOL messageRefreshScheduled_;
+  BOOL logoutInProgress_;
   BOOL pendingMessageHeightInvalidation_;
   CGFloat lastMessageTableWidth_;
   NSDictionary *meUser_;

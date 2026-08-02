@@ -3,6 +3,8 @@
 #import "FoundationHelpers.h"
 #import "OSCompat.h"
 
+#include <sys/sysctl.h>
+
 static void BridgeLog(NSString *format, ...) {
   if (!getenv("TELEGRAM_PPC_TDLIB_LOG")) return;
 
@@ -32,6 +34,48 @@ static NSString *SailplaneApplicationSupportPath() {
     MovePathReplacingDestination(oldRoot, root);
   }
   return root;
+}
+
+static NSString *SailplaneRuntimeSystemVersion() {
+  SInt32 major = 0, minor = 0, bugfix = 0;
+  if (Gestalt(gestaltSystemVersionMajor, &major) == noErr &&
+      Gestalt(gestaltSystemVersionMinor, &minor) == noErr &&
+      Gestalt(gestaltSystemVersionBugFix, &bugfix) == noErr &&
+      major > 0) {
+    return [NSString stringWithFormat:@"Mac OS X %ld.%ld.%ld", (long)major, (long)minor, (long)bugfix];
+  }
+
+  SInt32 systemVersion = 0;
+  if (Gestalt(gestaltSystemVersion, &systemVersion) == noErr && systemVersion > 0) {
+    long majorVersion = (systemVersion >> 12) & 0xf;
+    long minorVersion = (systemVersion >> 4) & 0xff;
+    long bugfixVersion = systemVersion & 0xf;
+    return [NSString stringWithFormat:@"Mac OS X %ld.%ld.%ld", majorVersion, minorVersion, bugfixVersion];
+  }
+
+  return @"Mac OS X";
+}
+
+static NSString *SailplaneDeviceModel() {
+  char model[256];
+  size_t len = sizeof(model);
+  if (sysctlbyname("hw.model", model, &len, NULL, 0) == 0 && len > 1) {
+    model[sizeof(model) - 1] = '\0';
+    NSString *hwModel = [NSString stringWithUTF8String:model];
+    if ([hwModel length]) return hwModel;
+  }
+  return @"Power Mac";
+}
+
+static NSString *SailplaneTDLibApplicationVersion() {
+  NSDictionary *info = [[NSBundle mainBundle] infoDictionary];
+  NSString *version = [info objectForKey:@"CFBundleShortVersionString"];
+  NSString *build = [info objectForKey:@"CFBundleVersion"];
+  if ([version length] && [build length] && ![version isEqualToString:build]) {
+    return [NSString stringWithFormat:@"Sailplane %@ (%@)", version, build];
+  }
+  if ([version length]) return [NSString stringWithFormat:@"Sailplane %@", version];
+  return @"Sailplane";
 }
 
 @implementation TelegramBridge
@@ -110,8 +154,9 @@ static NSString *SailplaneApplicationSupportPath() {
     {"database_directory", StdStringFromNSString(root)}, {"files_directory", StdStringFromNSString(files)},
     {"use_file_database", true}, {"use_chat_info_database", true}, {"use_message_database", true},
     {"enable_storage_optimizer", true}, {"api_id", kTDLibApiId}, {"api_hash", StdStringFromNSString(kTDLibApiHash)},
-    {"system_language_code", "en"}, {"device_model", "Power Mac G5"}, {"system_version", "Mac OS X " TELEGRAM_PPC_SYSTEM_VERSION},
-    {"application_version", "0.1-ppc"}};
+    {"system_language_code", "en"}, {"device_model", StdStringFromNSString(SailplaneDeviceModel())},
+    {"system_version", StdStringFromNSString(SailplaneRuntimeSystemVersion())},
+    {"application_version", StdStringFromNSString(SailplaneTDLibApplicationVersion())}};
   [self sendJSON:p];
 }
 
@@ -123,6 +168,16 @@ static NSString *SailplaneApplicationSupportPath() {
   clientId_ = tdCreateClientId_();
   BridgeLog(@"Created TDLib client id %d", clientId_);
   [delegate_ setStatusText:@"TDLib loaded."];
+}
+
+- (void)restartClientForLogin {
+  if (!tdCreateClientId_) {
+    [delegate_ setStatusText:@"TDLib is not ready."];
+    return;
+  }
+  clientId_ = tdCreateClientId_();
+  BridgeLog(@"Restarted TDLib client id %d", clientId_);
+  [self updateAuthorizationState:@"authorizationStateWaitTdlibParameters"];
 }
 
 - (void)submitAuthInput:(NSString *)input {

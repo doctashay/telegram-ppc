@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - main
+      - dev
       - gh-actions
       - sailplane-rename
 
@@ -212,6 +213,92 @@ jobs:
           name: ci-thin-app-${{ matrix.arch }}
           path: thin-${{ matrix.arch }}.tgz
           retention-days: 7
+
+  universal-dmg:
+    name: Universal DMG
+    runs-on: macos-latest
+    needs:
+      - cross-build
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Download thin apps
+        uses: actions/download-artifact@v8
+        with:
+          pattern: ci-thin-app-*
+          merge-multiple: true
+          path: thin-apps
+
+      - name: Unpack thin apps
+        run: |
+          set -euo pipefail
+          for arch in ppc i386 x86_64 arm64; do
+            archive="thin-apps/thin-$arch.tgz"
+            test -f "$archive"
+            mkdir -p "build/build-$arch"
+            tar -xzf "$archive" -C "build/build-$arch"
+          done
+
+      - name: Assemble and verify universal app
+        run: |
+          set -euo pipefail
+          sdk_root="$(xcrun --sdk macosx --show-sdk-path)"
+          install_name_tool="$(xcrun --find install_name_tool)"
+          otool="$(xcrun --find otool)"
+          lipo="$(xcrun --find lipo)"
+
+          {
+            printf 'export TELEGRAM_PPC_BUILD_ROOT=%q\n' "$GITHUB_WORKSPACE/build"
+            printf 'export TELEGRAM_PPC_DIST_DIR=%q\n' "$GITHUB_WORKSPACE/dist"
+            printf 'export TELEGRAM_PPC_SDK_ROOT=%q\n' "$sdk_root"
+            printf 'export TELEGRAM_PPC_INSTALL_NAME_TOOL=%q\n' "$install_name_tool"
+            printf 'export TELEGRAM_PPC_OTOOL=%q\n' "$otool"
+            printf 'export TELEGRAM_PPC_LIPO=%q\n' "$lipo"
+            printf 'export TELEGRAM_PPC_VERSION=%q\n' "0.2.1"
+            printf 'export TELEGRAM_PPC_BUILD_NUMBER=%q\n' "${{ github.run_number }}"
+          } > local-build-config.ci.sh
+
+          . ./local-build-config.ci.sh
+          scripts/build-universal.sh --config local-build-config.ci.sh --skip-build
+          scripts/ci/verify-release-app.sh dist/Sailplane.app
+          "$TELEGRAM_PPC_LIPO" -info dist/Sailplane.app/Contents/MacOS/Sailplane
+          "$TELEGRAM_PPC_LIPO" -info dist/Sailplane.app/Contents/Frameworks/libtdjson.dylib
+
+      - name: Create and verify universal DMG
+        run: |
+          set -euo pipefail
+          dmg_name="Sailplane-0.2.1-ci.${{ github.run_number }}-universal.dmg"
+
+          rm -rf dmg-root dmg-mount artifacts
+          mkdir -p dmg-root dmg-mount artifacts
+          cp -a dist/Sailplane.app dmg-root/
+
+          hdiutil create \
+            -volname Sailplane \
+            -srcfolder dmg-root \
+            -fs HFS+ \
+            -layout SPUD \
+            -ov \
+            -format UDZO \
+            "artifacts/$dmg_name"
+          shasum -a 256 "artifacts/$dmg_name" > "artifacts/$dmg_name.sha256"
+
+          hdiutil attach -nobrowse -mountpoint dmg-mount "artifacts/$dmg_name"
+          test -d dmg-mount/Sailplane.app
+          hdiutil detach dmg-mount
+
+      - name: Upload ready-to-use universal DMG
+        uses: actions/upload-artifact@v7
+        with:
+          name: Sailplane-universal-DMG
+          path: |
+            artifacts/*.dmg
+            artifacts/*.dmg.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
 
   apple-silicon:
     name: Apple Silicon macOS 26

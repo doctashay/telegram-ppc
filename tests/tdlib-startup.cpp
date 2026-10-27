@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
   char directory[] = "/tmp/sailplane-startup-test.XXXXXX";
   if (!mkdtemp(directory)) throw std::runtime_error("Cannot create test database directory");
   json parameters = {{"database_directory", directory}, {"files_directory", directory}, {"use_test_dc", true},
-    {"api_id", 12345}, {"api_hash", "0123456789abcdef0123456789abcdef"},
+    {"api_id", 12345}, {"api_hash", std::string(32, '0')},
     {"system_language_code", "en"}, {"device_model", "Startup test"},
     {"system_version", "Test"}, {"application_version", "Test"}};
   const int client = create();

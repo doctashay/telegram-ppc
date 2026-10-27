@@ -128,6 +128,7 @@ build_one() {
       --arch="$arch_name" \
       --cpu="$cpu" \
       --cc="$cc" \
+      --host-cc="${TELEGRAM_PPC_FFMPEG_HOST_CC:-cc}" \
       --ar="$ar" \
       --ranlib="$ranlib" \
       ${strip:+--strip="$strip"} \
@@ -143,7 +144,7 @@ build_one() {
       --enable-swscale \
       --disable-avdevice \
       --disable-avfilter \
-      --disable-swresample \
+      --enable-swresample \
       --enable-protocol=file \
       --enable-protocol=pipe \
       --enable-protocol=data \

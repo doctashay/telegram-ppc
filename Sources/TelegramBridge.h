@@ -18,7 +18,7 @@
 }
 - (id)initWithDelegate:(AppDelegate *)delegate;
 - (BOOL)loadTDLib;
-- (void)start;
+- (BOOL)start;
 - (void)restartClientForLogin;
 - (void)discardInterruptedAuthorization;
 - (void)poll;

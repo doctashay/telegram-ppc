@@ -5,6 +5,7 @@
 *.mm text eol=lf
 *.plist text eol=lf
 *.sh text eol=lf
+scripts/ci/patches/*.diff text eol=lf whitespace=-blank-at-eol
 CMakeLists.txt text eol=lf
 
 *.dylib binary

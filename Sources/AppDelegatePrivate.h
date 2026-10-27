@@ -14,6 +14,7 @@
 - (void)performScheduledMessageRefresh;
 - (void)promptForAuthorizationState:(NSString *)state;
 - (void)resumeAuthorizationFlowAfterLaunch;
+- (void)startTelegram;
 - (void)configureAuthWindowForState:(NSString *)state;
 - (NSString *)selectedPhoneCountryCode;
 - (NSString *)normalizedPhoneNumberInput;

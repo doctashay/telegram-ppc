@@ -49,6 +49,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v5
 
+      - name: Cache Tiger dependencies
+        if: matrix.arch == 'ppc' || matrix.arch == 'i386'
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/tiger-${{ matrix.arch }}/deps
+            build/tiger-${{ matrix.arch }}/src/MacOSX10.4u.sdk
+            build/tiger-${{ matrix.arch }}/build-id
+            build/tiger-${{ matrix.arch }}/complete
+          key: tiger-static-curl-20260622-${{ matrix.arch }}-${{ hashFiles('scripts/ci/bootstrap-tiger.sh', 'scripts/ci/fetch-tiger-sources.py', 'scripts/ci/patches/*.diff', 'scripts/build-ffmpeg-static.sh') }}
+
       - name: Log in to GitHub Container Registry
         env:
           GHCR_TOKEN: ${{ secrets.GHCR_PAT || github.token }}
@@ -104,8 +115,14 @@ jobs:
               export TELEGRAM_PPC_BUILD_ROOT=/work/build
               export TELEGRAM_PPC_DIST_DIR=/work/dist
               . scripts/ci/use-darwin-legacy-cross-env.sh
-              if [ "${{ matrix.arch }}" = ppc ]; then
-                . scripts/ci/use-vendored-ppcports-tdlib.sh
+              if [ "${{ matrix.arch }}" = ppc ] || [ "${{ matrix.arch }}" = i386 ]; then
+                tiger_root="/work/build/tiger-${{ matrix.arch }}"
+                if [ ! -f "$tiger_root/complete" ]; then
+                  apt-get update
+                  apt-get install -y --no-install-recommends patch gperf
+                fi
+                bash scripts/ci/bootstrap-tiger.sh "${{ matrix.arch }}" "$tiger_root"
+                . "$tiger_root/environment.sh"
               fi
               scripts/ci/write-build-config.sh local-build-config.ci.sh
               scripts/build-universal.sh --config local-build-config.ci.sh --clean --arch "${{ matrix.arch }}" --skip-assemble

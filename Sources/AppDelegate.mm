@@ -652,6 +652,14 @@
     if (appIcon) [NSApp setApplicationIconImage:appIcon];
   }
 
+  bridge_ = [[TelegramBridge alloc] initWithDelegate:self];
+  [self showAuthWindow];
+  [self setAuthBusy:YES message:@"Starting Telegram..."];
+  // Let AppKit draw the login window before loading the protocol libraries.
+  [self performSelector:@selector(startTelegram) withObject:nil afterDelay:0.0];
+}
+
+- (void)startTelegram {
   // Load VOIP backend
   NSArray *voipPaths = [NSArray arrayWithObjects:
     [[[NSBundle mainBundle] privateFrameworksPath] stringByAppendingPathComponent:@"libppcvoip.dylib"],
@@ -665,12 +673,10 @@
     voipDestroy_ = reinterpret_cast<void (*)(void *)>(dlsym(voipHandle_, "ppc_voip_destroy"));
   }
 
-  bridge_ = [[TelegramBridge alloc] initWithDelegate:self];
-  // Always give startup failures somewhere visible to report themselves. Without
-  // this, a TDLib load/compatibility failure leaves only the application menus.
-  [self showAuthWindow];
-  [self setAuthBusy:YES message:@"Starting Telegram..."];
-  [bridge_ start];
+  if (![bridge_ start]) {
+    [self setAuthBusy:NO message:nil];
+    return;
+  }
   [NSTimer scheduledTimerWithTimeInterval:0.10 target:bridge_ selector:@selector(poll) userInfo:nil repeats:YES];
   [bridge_ poll];
   [self performSelector:@selector(resumeAuthorizationFlowAfterLaunch) withObject:nil afterDelay:0.25];

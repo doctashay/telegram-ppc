@@ -1,0 +1,65 @@
+--- tdutils/td/utils/port/Clocks.cpp
++++ tdutils/td/utils/port/Clocks.cpp
+@@ -17,10 +17,14 @@
+ #include <time.h>
+ #endif
+ 
++#if TD_PORT_POSIX && defined(_POSIX_TIMERS) && _POSIX_TIMERS > 0
++#define TD_HAVE_POSIX_CLOCK_GETTIME 1
++#endif
++
+ namespace td {
+ 
+ double Clocks::monotonic() {
+-#if TD_PORT_POSIX
++#if TD_HAVE_POSIX_CLOCK_GETTIME
+   // use system specific functions, because std::chrono::steady_clock is steady only under Windows
+ 
+ #ifdef CLOCK_BOOTTIME
+@@ -61,7 +65,7 @@
+ 
+ string Clocks::get_debug() {
+   string result;
+-#if TD_PORT_POSIX
++#if TD_HAVE_POSIX_CLOCK_GETTIME
+   auto add_clock = [&](Slice clock_name, clockid_t clock_id) {
+     struct timespec spec;
+     if (clock_gettime(clock_id, &spec) == 0) {
+--- tdutils/td/utils/port/path.cpp
++++ tdutils/td/utils/port/path.cpp
+@@ -343,6 +343,10 @@
+ }
+ 
+ Result<bool> walk_path_dir(string &path, FileFd fd, const WalkFunction &func) {
++#if defined(__APPLE__)
++  (void)fd;
++  return walk_path_dir(path, func);
++#else
+   auto native_fd = fd.move_as_native_fd();
+   auto *subdir = fdopendir(native_fd.fd());
+   if (subdir == nullptr) {
+@@ -350,6 +354,7 @@
+   }
+   native_fd.release();
+   return walk_path_dir(path, subdir, func);
++#endif
+ }
+ 
+ Result<bool> walk_path_dir(string &path, const WalkFunction &func) {
+--- tddb/td/db/KeyValueSyncInterface.h
++++ tddb/td/db/KeyValueSyncInterface.h
+@@ -15,6 +15,14 @@
+ #include <functional>
+ #include <unordered_map>
+ 
++#if defined(__APPLE__)
++#include <sys/param.h>
++#endif
++
++#ifdef isset
++#undef isset
++#endif
++
+ namespace td {
+ 
+ class KeyValueSyncInterface {

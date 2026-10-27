@@ -55,7 +55,7 @@ static NSArray *SailplaneVersionComponents(NSString *version) {
     NSScanner *scanner = [NSScanner scannerWithString:[rawParts objectAtIndex:i]];
     int value = 0;
     if (![scanner scanInt:&value]) value = 0;
-    [parts addObject:[NSNumber numberWithInteger:value]];
+    [parts addObject:[NSNumber numberWithInt:value]];
   }
   return parts;
 }
@@ -65,8 +65,8 @@ static NSInteger SailplaneCompareVersions(NSString *lhs, NSString *rhs) {
   NSArray *right = SailplaneVersionComponents(rhs);
   NSUInteger count = ([left count] > [right count]) ? [left count] : [right count];
   for (NSUInteger i = 0; i < count; i++) {
-    NSInteger l = (i < [left count]) ? [[left objectAtIndex:i] integerValue] : 0;
-    NSInteger r = (i < [right count]) ? [[right objectAtIndex:i] integerValue] : 0;
+    int l = (i < [left count]) ? [[left objectAtIndex:i] intValue] : 0;
+    int r = (i < [right count]) ? [[right objectAtIndex:i] intValue] : 0;
     if (l < r) return -1;
     if (l > r) return 1;
   }

@@ -2,6 +2,7 @@
 #import "AppDelegatePrivate.h"
 #import "FoundationHelpers.h"
 #import "OSCompat.h"
+#include "TDLibParameters.h"
 
 #include <sys/sysctl.h>
 
@@ -102,19 +103,24 @@ static NSString *SailplaneTDLibApplicationVersion() {
   if ([ep length]) [cands addObject:ep];
   NSString *bl = [[bundle privateFrameworksPath] stringByAppendingPathComponent:@"libtdjson.dylib"];
   if (bl) [cands addObject:bl];
+  NSString *loadError = nil;
   for (NSUInteger i = 0; i < [cands count]; i++) {
     NSString *candidate = [cands objectAtIndex:i];
     BridgeLog(@"Trying TDLib candidate %@", candidate);
-    handle_ = dlopen([candidate fileSystemRepresentation], RTLD_LAZY | RTLD_LOCAL);
+    handle_ = dlopen([candidate fileSystemRepresentation], RTLD_NOW | RTLD_LOCAL);
     if (handle_) {
       BridgeLog(@"Loaded TDLib candidate %@", candidate);
       break;
     }
-    BridgeLog(@"TDLib candidate failed: %s", dlerror());
+    const char *error = dlerror();
+    loadError = error ? [NSString stringWithUTF8String:error] : @"Unknown loader error";
+    NSLog(@"Sailplane: cannot load TDLib at %@: %@", candidate, loadError);
   }
   if (!handle_) {
     BridgeLog(@"TDLib not found");
-    [delegate_ setStatusText:@"TDLib not found."];
+    [delegate_ setStatusText:@"Unable to load Telegram. See the startup error for details."];
+    NSRunAlertPanel(@"Unable to start Telegram", @"%@", @"OK", nil, nil,
+                    loadError ? loadError : @"The app bundle does not contain TDLib.");
     return NO;
   }
   tdReceive_ = reinterpret_cast<td_receive_fn>(dlsym(handle_, "td_receive"));
@@ -124,6 +130,9 @@ static NSString *SailplaneTDLibApplicationVersion() {
   if (!tdReceive_ || !tdSend_ || !tdExecute_ || !tdCreateClientId_) {
     BridgeLog(@"TDLib symbols missing receive=%p send=%p execute=%p create=%p", tdReceive_, tdSend_, tdExecute_, tdCreateClientId_);
     [delegate_ setStatusText:@"TDLib symbols missing."];
+    NSLog(@"Sailplane: TDLib is missing required JSON client functions");
+    tdReceive_ = NULL; tdSend_ = NULL; tdExecute_ = NULL; tdCreateClientId_ = NULL;
+    dlclose(handle_); handle_ = NULL;
     return NO;
   }
   BridgeLog(@"TDLib symbols resolved");
@@ -151,24 +160,30 @@ static NSString *SailplaneTDLibApplicationVersion() {
   NSString *files = [root stringByAppendingPathComponent:@"files"];
   EnsureDirectoryExists(root);
   EnsureDirectoryExists(files);
-  json p = {{"@type", "setTdlibParameters"}, {"use_test_dc", false},
+  json p = {{"use_test_dc", false},
     {"database_directory", StdStringFromNSString(root)}, {"files_directory", StdStringFromNSString(files)},
     {"use_file_database", true}, {"use_chat_info_database", true}, {"use_message_database", true},
     {"enable_storage_optimizer", true}, {"api_id", kTDLibApiId}, {"api_hash", StdStringFromNSString(kTDLibApiHash)},
     {"system_language_code", "en"}, {"device_model", StdStringFromNSString(SailplaneDeviceModel())},
     {"system_version", StdStringFromNSString(SailplaneRuntimeSystemVersion())},
     {"application_version", StdStringFromNSString(SailplaneTDLibApplicationVersion())}};
+  p = TDLibInitializationRequest(std::move(p));
   [self sendJSON:p];
 }
 
-- (void)start {
+- (BOOL)start {
   BridgeLog(@"Bridge start");
-  if (![self loadTDLib]) return;
+  if (![self loadTDLib]) return NO;
   const char *logResult = tdExecute_("{\"@type\":\"setLogVerbosityLevel\",\"new_verbosity_level\":1}");
   BridgeLog(@"setLogVerbosityLevel result %s", logResult ? logResult : "(null)");
   clientId_ = tdCreateClientId_();
+  if (!clientId_) {
+    [delegate_ setStatusText:@"Unable to create the Telegram client."];
+    return NO;
+  }
   BridgeLog(@"Created TDLib client id %d", clientId_);
   [delegate_ setStatusText:@"TDLib loaded."];
+  return YES;
 }
 
 - (void)restartClientForLogin {

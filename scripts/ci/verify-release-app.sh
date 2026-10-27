@@ -90,5 +90,7 @@ if [ -n "$bad_bundled_loads" ]; then
 fi
 
 verify_ppc_tdlib_patch
+TELEGRAM_PPC_LIPO="$TELEGRAM_PPC_LIPO" TELEGRAM_PPC_OTOOL="$TELEGRAM_PPC_OTOOL" \
+  bash "$(dirname "${BASH_SOURCE[0]}")/verify-tiger-imports.sh" "$app"
 
 echo "verified $app"

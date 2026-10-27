@@ -21,6 +21,7 @@ set(TELEGRAM_PPC_CA_BUNDLE "" CACHE FILEPATH "CA certificate bundle copied to Co
 set(TELEGRAM_PPC_INSTALL_NAME_TOOL "" CACHE FILEPATH "Optional install_name_tool path for bundle load-command fixups")
 set(TELEGRAM_PPC_VERSION "0.2.1" CACHE STRING "CFBundleShortVersionString value")
 set(TELEGRAM_PPC_BUILD_NUMBER "0" CACHE STRING "CFBundleVersion value")
+set(TELEGRAM_PPC_STATIC_CXX_RUNTIME_ROOT "" CACHE PATH "Optional Tiger-compatible static C++ runtime prefix")
 
 project(Sailplane LANGUAGES CXX OBJCXX)
 
@@ -250,6 +251,7 @@ set(TELEGRAM_PPC_HEADERS
   Sources/MessageCell.h
   Sources/MessageContent.h
   Sources/TelegramBridge.h
+  Sources/TDLibParameters.h
   Sources/OSCompat.h
   Sources/UpdateChecker.h
   Sources/VideoPlayerView.h
@@ -364,7 +366,7 @@ target_compile_definitions(Sailplane PRIVATE
   JSON_HAS_EXPERIMENTAL_FILESYSTEM=0
   TELEGRAM_PPC_SYSTEM_VERSION="${TELEGRAM_PPC_MIN_SYSTEM_VERSION}"
 )
-if(TELEGRAM_PPC_MIN_SYSTEM_VERSION VERSION_LESS "10.5")
+if(CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS "10.5")
   target_compile_definitions(Sailplane PRIVATE __DARWIN_UNIX03=0)
 endif()
 
@@ -381,6 +383,14 @@ target_link_libraries(Sailplane PRIVATE
   "${CORESERVICES_FRAMEWORK}"
   "${SYSTEMCONFIGURATION_FRAMEWORK}"
 )
+
+if(TELEGRAM_PPC_STATIC_CXX_RUNTIME_ROOT)
+  if(NOT EXISTS "${TELEGRAM_PPC_STATIC_CXX_RUNTIME_ROOT}/lib/libstdc++.a")
+    message(FATAL_ERROR "Static C++ runtime is missing lib/libstdc++.a")
+  endif()
+  target_link_directories(Sailplane PRIVATE "${TELEGRAM_PPC_STATIC_CXX_RUNTIME_ROOT}/lib")
+  target_link_options(Sailplane PRIVATE "-B${TELEGRAM_PPC_STATIC_CXX_RUNTIME_ROOT}/lib/" -static-libstdc++ -static-libgcc)
+endif()
 
 add_custom_command(TARGET Sailplane POST_BUILD
   COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_BUNDLE_CONTENT_DIR:Sailplane>/Frameworks"

@@ -14,6 +14,18 @@ FFmpeg is used for media decoding. FFmpeg licensing depends on the exact build a
 
 Project: https://ffmpeg.org/
 
+## GCC runtime
+
+Tiger builds statically link libstdc++ and libgcc from GCC 14.2. These libraries are distributed under GPLv3 with the GCC Runtime Library Exception 3.1.
+
+Project: https://gcc.gnu.org/ — Exception: https://www.gnu.org/licenses/gcc-exception-3.1.html
+
+## Apple Csu
+
+PowerPC Tiger builds use startup code from Apple's Csu-58 release, under the Apple Public Source License 1.1.
+
+Source: https://github.com/apple-oss-distributions/Csu/tree/Csu-58
+
 ## nlohmann/json
 
 nlohmann/json is used for JSON parsing and serialization.

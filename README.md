@@ -61,7 +61,7 @@ Download the latest release here: https://github.com/doctashay/telegram-ppc/rele
 
 This chart describes Sailplane's intended platform support by macOS release and CPU architecture.
 
-CI currently verifies PowerPC and i386 builds against a 10.5 SDK, while x86_64 and arm64 are verified against a modern macOS SDK. If a listed configuration fails to build or run, please open an issue.
+CI builds PowerPC and i386 against the 10.4u SDK, x86_64 against the 10.5 SDK, and arm64 against a modern macOS SDK. If a listed configuration fails to build or run, please open an issue.
 
 | macOS version | PowerPC | i386 | x86_64 | arm64 |
 | --- | --- | --- | --- | --- |
@@ -158,6 +158,10 @@ Create `TelegramCredentials.h` from the example:
   ```
 
   Release builds are handled by the CI pipeline and a separate Darwin cross-compile Docker image. That path builds the architecture slices individually, then assembles a universal app. If you have any suggestions for improving this workflow, feel free to open an isuse. 
+
+  For Tiger, CI rebuilds the PPC and i386 dependencies with `scripts/ci/bootstrap-tiger.sh` instead of using the image's Leopard libraries. Source archives are checksum-pinned; the build includes a static C++ runtime and patched TDLib. CI caches the resulting dependencies, checks their system imports against the Tiger SDK, and rejects Leopard-only symbol suffixes. A cold build takes longer than a cached build.
+
+  To rebuild these dependencies inside the cross image, install `patch` and `gperf`, then run `bash scripts/ci/bootstrap-tiger.sh ppc /work/build/tiger-ppc`. Source the generated `environment.sh` after `use-darwin-legacy-cross-env.sh` and before writing the app build config. Use a fresh output directory when the bootstrap inputs change.
 
 ## License
 

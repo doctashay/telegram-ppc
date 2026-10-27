@@ -105,7 +105,7 @@ build_slice() {
       -DCMAKE_BUILD_TYPE=Release \
       -DTELEGRAM_PPC_CPU_TARGET="$cpu" \
       -DTELEGRAM_PPC_DEPENDENCY_ROOTS="${TELEGRAM_PPC_DEPENDENCY_ROOTS:-}" \
-      -DTELEGRAM_PPC_MIN_SYSTEM_VERSION=10.4 \
+      -DTELEGRAM_PPC_MIN_SYSTEM_VERSION="$deployment" \
       -DTELEGRAM_PPC_VERSION="${TELEGRAM_PPC_VERSION:-0.2.1}" \
       -DTELEGRAM_PPC_BUILD_NUMBER="${TELEGRAM_PPC_BUILD_NUMBER:-0}" \
       -DTELEGRAM_PPC_FFMPEG_ROOT="$ffmpeg_root" \
@@ -226,6 +226,8 @@ verify_relocatable_bundle() {
   fi
 
   verify_ppc_tdlib_patch "$app"
+  TELEGRAM_PPC_LIPO="$TELEGRAM_PPC_LIPO" TELEGRAM_PPC_OTOOL="$TELEGRAM_PPC_OTOOL" \
+    bash "$repo_root/scripts/ci/verify-tiger-imports.sh" "$app"
 }
 
 verify_ppc_tdlib_patch() {
@@ -267,6 +269,21 @@ assemble_universal() {
   rm -rf "$app"
   mkdir -p "$dist"
   cp -a "$arm64_app" "$app"
+
+  python3 - "$app/Contents/Info.plist" <<'PY'
+import plistlib
+import sys
+
+path = sys.argv[1]
+with open(path, "rb") as source:
+    info = plistlib.load(source)
+info["LSMinimumSystemVersion"] = "10.4"
+info["LSMinimumSystemVersionByArchitecture"] = {
+    "ppc": "10.4", "i386": "10.4", "x86_64": "10.5", "arm64": "11.0"
+}
+with open(path, "wb") as output:
+    plistlib.dump(info, output)
+PY
 
   "$TELEGRAM_PPC_LIPO" -create \
     "$ppc_app/Contents/MacOS/Sailplane" \

@@ -46,6 +46,17 @@ command -v patch >/dev/null
 command -v gperf >/dev/null
 printf '%s\n' "$signature" > "$tiger_root/build-id"
 mkdir -p "$tiger_root/build" "$tiger_root/deps"
+report_failure() {
+  local status=$? log
+  trap - ERR
+  for log in "$tiger_root/build/"*.log; do
+    [ -f "$log" ] || continue
+    printf '\n--- %s ---\n' "$log" >&2
+    tail -n 80 "$log" >&2
+  done
+  exit "$status"
+}
+trap report_failure ERR
 python3 "$repo_root/scripts/ci/fetch-tiger-sources.py" "$tiger_root"
 
 # shellcheck source=/dev/null

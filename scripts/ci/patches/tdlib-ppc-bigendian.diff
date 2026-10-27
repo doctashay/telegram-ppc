@@ -641,3 +641,40 @@
    }
  
    void store_int(int32 x) {
+--- /dev/null
++++ tdutils/td/utils/endian_load.h
+@@ -0,0 +1,34 @@
++// Load MTProto/TL integers in little-endian wire order.
++#pragma once
++
++#include "td/utils/common.h"
++#include "td/utils/bits.h"
++
++namespace td {
++
++inline int32 le_load_int32(const void *ptr) {
++  const unsigned char *p = static_cast<const unsigned char *>(ptr);
++  uint32 res = static_cast<uint32>(p[0]) | (static_cast<uint32>(p[1]) << 8) |
++               (static_cast<uint32>(p[2]) << 16) | (static_cast<uint32>(p[3]) << 24);
++  return static_cast<int32>(res);
++}
++
++inline int64 le_load_int64(const void *ptr) {
++  const unsigned char *p = static_cast<const unsigned char *>(ptr);
++  uint64 res = 0;
++  for (int i = 0; i < 8; i++) {
++    res |= static_cast<uint64>(p[i]) << (8 * i);
++  }
++  return static_cast<int64>(res);
++}
++
++// Convert raw MTProto header fields between host and wire byte order.
++#if defined(__BIG_ENDIAN__) || defined(__ppc__) || defined(__powerpc__) || defined(__POWERPC__)
++inline uint32 le_swap32(uint32 x) { return bswap32(x); }
++inline uint64 le_swap64(uint64 x) { return bswap64(x); }
++#else
++inline uint32 le_swap32(uint32 x) { return x; }
++inline uint64 le_swap64(uint64 x) { return x; }
++#endif
++
++}  // namespace td

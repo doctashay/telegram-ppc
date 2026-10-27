@@ -5,6 +5,7 @@
 #include <dlfcn.h>
 #include <iostream>
 #include <stdexcept>
+#include <unistd.h>
 
 using nlohmann::json;
 
